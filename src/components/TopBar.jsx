@@ -22,3 +22,4 @@ export default function TopBar({ section, connected }) {
     </header>
   )
 }
+
