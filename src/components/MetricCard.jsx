@@ -7,3 +7,4 @@ export default function MetricCard({ label, value, hint, tone = 'default' }) {
     </div>
   )
 }
+
