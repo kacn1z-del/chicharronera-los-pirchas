@@ -1,453 +1,105 @@
-.app-shell {
-  position: relative;
-  display: flex;
-  min-height: 100vh;
-  overflow: hidden;
-  background: var(--paper);
+import { useEffect, useState } from 'react'
+import { collection, onSnapshot } from 'firebase/firestore'
+import { db } from './firebase'
+import Sidebar from './components/Sidebar'
+import TopBar from './components/TopBar'
+import MetricCard from './components/MetricCard'
+import OrdersTable from './components/OrdersTable'
+import RestaurantsPanel from './components/RestaurantsPanel'
+import RidersPanel from './components/RidersPanel'
+import UsersPanel from './components/UsersPanel'
+import './App.css'
+
+function useCollectionCount(name) {
+  const [count, setCount] = useState(null)
+  useEffect(() => {
+    const unsub = onSnapshot(
+      collection(db, name),
+      (snapshot) => setCount(snapshot.size),
+      () => setCount(null)
+    )
+    return () => unsub()
+  }, [name])
+  return count
 }
 
-/* Signature element: soft blurred flame glow, like embers behind the grill */
-.canopy {
-  position: fixed;
-  border-radius: 50%;
-  filter: blur(90px);
-  pointer-events: none;
-  z-index: 0;
-}
+export default function App() {
+  const [section, setSection] = useState('resumen')
+  const [connected, setConnected] = useState(true)
 
-.canopy--one {
-  width: 720px;
-  height: 720px;
-  top: -260px;
-  right: -220px;
-  background: radial-gradient(circle at 30% 30%, var(--ember-400) 0%, var(--flame-600) 55%, transparent 75%);
-  opacity: 0.5;
-}
+  const ordersCount = useCollectionCount('orders')
+  const restaurantsCount = useCollectionCount('restaurants')
+  const usersCount = useCollectionCount('users')
 
-.canopy--two {
-  width: 520px;
-  height: 520px;
-  bottom: -240px;
-  left: 220px;
-  background: radial-gradient(circle at 60% 60%, var(--gold-200) 0%, transparent 70%);
-  opacity: 0.55;
-}
+  return (
+    <div className="app-shell">
+      <div className="canopy canopy--one" aria-hidden="true" />
+      <div className="canopy canopy--two" aria-hidden="true" />
 
-/* Sidebar */
-.sidebar {
-  position: relative;
-  z-index: 2;
-  width: 232px;
-  flex-shrink: 0;
-  background: var(--char-950);
-  color: var(--gold-200);
-  display: flex;
-  flex-direction: column;
-  padding: 24px 16px;
-  gap: 28px;
-}
+      <Sidebar active={section} onNavigate={setSection} />
 
-.sidebar__brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 8px;
-}
+      <div className="app-main">
+        <TopBar section={section} connected={connected} />
 
-.sidebar__mark {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  object-fit: cover;
-  background: var(--paper);
-  flex-shrink: 0;
-}
+        <main className="app-content">
+          {section === 'resumen' && (
+            <>
+              <div className="metrics-grid">
+                <MetricCard
+                  label="Pedidos totales"
+                  value={ordersCount ?? '—'}
+                  hint="Documentos en la colección orders"
+                />
+                <MetricCard
+                  label="Restaurantes"
+                  value={restaurantsCount ?? '—'}
+                  hint="Locales registrados"
+                  tone="mint"
+                />
+                <MetricCard
+                  label="Usuarios"
+                  value={usersCount ?? '—'}
+                  hint="Clientes registrados"
+                  tone="amber"
+                />
+              </div>
 
-.sidebar__title {
-  font-family: var(--font-display);
-  color: var(--paper);
-  font-weight: 700;
-  font-size: 15px;
-  margin: 0;
-}
+              <section className="section-block">
+                <h2 className="section-block__title">Pedidos recientes</h2>
+                <OrdersTable onConnectionChange={setConnected} />
+              </section>
+            </>
+          )}
 
-.sidebar__subtitle {
-  font-size: 12px;
-  color: var(--ember-400);
-  margin: 0;
-}
+          {section === 'pedidos' && (
+            <section className="section-block">
+              <h2 className="section-block__title">Todos los pedidos</h2>
+              <OrdersTable onConnectionChange={setConnected} />
+            </section>
+          )}
 
-.sidebar__nav {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
+          {section === 'restaurantes' && (
+            <section className="section-block">
+              <h2 className="section-block__title">Restaurantes registrados</h2>
+              <RestaurantsPanel />
+            </section>
+          )}
 
-.sidebar__link {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: transparent;
-  border: none;
-  color: var(--gold-200);
-  font-size: 14px;
-  font-weight: 500;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  text-align: left;
-  transition: background 0.15s ease, color 0.15s ease;
-}
+          {section === 'repartidores' && (
+            <section className="section-block">
+              <h2 className="section-block__title">Repartidores en línea</h2>
+              <RidersPanel />
+            </section>
+          )}
 
-.sidebar__link:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--paper);
-}
-
-.sidebar__link.is-active {
-  background: var(--flame-600);
-  color: var(--paper);
-}
-
-.sidebar__icon {
-  width: 18px;
-  text-align: center;
-  font-size: 15px;
-}
-
-.sidebar__footer {
-  margin-top: auto;
-  padding: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 11px;
-  color: var(--ember-400);
-}
-
-.sidebar__project {
-  color: var(--gold-200);
-  font-size: 12px;
-}
-
-/* Main area */
-.app-main {
-  position: relative;
-  z-index: 1;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.topbar {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: 28px 36px 12px;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.topbar__title {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--char-950);
-}
-
-.topbar__subtitle {
-  margin-top: 4px;
-  font-size: 13px;
-  color: var(--ink-600);
-}
-
-.topbar__status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  font-weight: 500;
-  padding: 8px 14px;
-  border-radius: 999px;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(14px);
-  color: var(--ink-600);
-}
-
-.topbar__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--status-green);
-}
-
-.topbar__status.is-offline .topbar__dot {
-  background: var(--red-500);
-}
-
-.app-content {
-  padding: 12px 36px 48px;
-  display: flex;
-  flex-direction: column;
-  gap: 28px;
-}
-
-/* Metrics */
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-}
-
-.metric-card {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(18px);
-  border-radius: var(--radius-lg);
-  padding: 20px 22px;
-}
-
-.metric-card__label {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ink-400);
-  margin-bottom: 10px;
-}
-
-.metric-card__value {
-  font-size: 32px;
-  font-weight: 600;
-  color: var(--char-950);
-}
-
-.metric-card__hint {
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--ink-400);
-}
-
-.metric-card--mint {
-  border-color: rgba(116, 198, 157, 0.6);
-}
-
-.metric-card--amber .metric-card__value {
-  color: #a86a1c;
-}
-
-/* Section blocks & panels */
-.section-block {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.section-block__title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--char-950);
-}
-
-.panel {
-  background: var(--glass-strong);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(18px);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-.panel--empty {
-  padding: 40px 28px;
-  text-align: center;
-  color: var(--ink-600);
-  font-size: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.panel__hint {
-  color: var(--ink-400);
-  font-size: 12px;
-}
-
-/* Orders table */
-.orders-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.orders-table th {
-  text-align: left;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--ink-400);
-  padding: 14px 20px;
-  border-bottom: 1px solid rgba(16, 36, 27, 0.08);
-}
-
-.orders-table td {
-  padding: 14px 20px;
-  border-bottom: 1px solid rgba(16, 36, 27, 0.06);
-  color: var(--ink-900);
-}
-
-.orders-table tr:last-child td {
-  border-bottom: none;
-}
-
-/* Badges */
-.badge {
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.badge--amber {
-  background: rgba(232, 163, 61, 0.18);
-  color: #a86a1c;
-}
-
-.badge--blue {
-  background: rgba(63, 122, 200, 0.16);
-  color: #2f5aa8;
-}
-
-.badge--green {
-  background: rgba(63, 152, 104, 0.18);
-  color: var(--status-green);
-}
-
-.badge--gray {
-  background: rgba(111, 138, 124, 0.16);
-  color: var(--ink-600);
-}
-
-.badge--red {
-  background: rgba(209, 83, 63, 0.16);
-  color: var(--red-500);
-}
-
-/* WhatsApp action */
-.wa-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--whatsapp-green);
-  color: #fff;
-  text-decoration: none;
-}
-
-.wa-button:hover {
-  background: var(--whatsapp-green-dark);
-}
-
-.wa-button--disabled {
-  background: rgba(111, 138, 124, 0.18);
-  color: var(--ink-400);
-  cursor: not-allowed;
-}
-
-/* Card grids (restaurants, riders) */
-.card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 14px;
-  padding: 20px;
-}
-
-.restaurant-card {
-  background: rgba(255, 255, 255, 0.5);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  padding: 16px;
-}
-
-.restaurant-card__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.restaurant-card__top h3 {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.restaurant-card__meta {
-  font-size: 12px;
-  color: var(--ink-400);
-}
-
-.rider-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: rgba(255, 255, 255, 0.5);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  padding: 14px 16px;
-}
-
-.rider-card__dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--status-green);
-  box-shadow: 0 0 0 4px rgba(63, 152, 104, 0.2);
-  flex-shrink: 0;
-}
-
-.rider-card__id {
-  font-size: 12px;
-  color: var(--ink-900);
-}
-
-.rider-card__coords {
-  font-size: 11px;
-  color: var(--ink-400);
-}
-
-/* Responsive: down to mobile, since Keny builds and checks from an iPhone */
-@media (max-width: 860px) {
-  .app-shell {
-    flex-direction: column;
-  }
-
-  .sidebar {
-    width: 100%;
-    flex-direction: row;
-    align-items: center;
-    padding: 12px 16px;
-    gap: 14px;
-    overflow-x: auto;
-  }
-
-  .sidebar__nav {
-    flex-direction: row;
-  }
-
-  .sidebar__footer {
-    display: none;
-  }
-
-  .topbar,
-  .app-content {
-    padding-left: 18px;
-    padding-right: 18px;
-  }
-
-  .orders-table {
-    display: block;
-    overflow-x: auto;
-    white-space: nowrap;
-  }
+          {section === 'usuarios' && (
+            <section className="section-block">
+              <h2 className="section-block__title">Usuarios registrados</h2>
+              <UsersPanel />
+            </section>
+          )}
+        </main>
+      </div>
+    </div>
+  )
 }
