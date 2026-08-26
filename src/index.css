@@ -1,0 +1,102 @@
+:root {
+  --char-950: #171310;
+  --char-900: #221b16;
+  --char-700: #3a2c22;
+  --flame-600: #d9391f;
+  --flame-500: #e8792b;
+  --ember-400: #f2a53a;
+  --gold-200: #f6d98a;
+  --paper: #fbf4ea;
+  --paper-dim: #f3e6d5;
+  --ink-900: #241c15;
+  --ink-600: #6b5945;
+  --ink-400: #8f7c68;
+  --amber-500: #e8792b;
+  --red-500: #c92f1c;
+  --status-green: #3f9868;
+  --whatsapp-green: #25d366;
+  --whatsapp-green-dark: #1da851;
+  --glass-bg: rgba(255, 250, 242, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.8);
+  --glass-strong: rgba(255, 250, 242, 0.85);
+
+  --font-display: 'Bricolage Grotesque', 'Sora', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SFMono-Regular', monospace;
+
+  --radius-lg: 22px;
+  --radius-md: 14px;
+  --radius-sm: 9px;
+
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--ink-900);
+  background: var(--paper);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+p {
+  margin: 0;
+}
+
+button {
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+}
+
+::selection {
+  background: var(--ember-400);
+  color: var(--char-950);
+}
+
+/* Visible keyboard focus, kept everywhere */
+:focus-visible {
+  outline: 2px solid var(--flame-600);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
