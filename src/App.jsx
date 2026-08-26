@@ -1,58 +1,105 @@
-import { useState } from 'react'
-import { CartProvider } from './CartContext'
-import Header from './components/Header'
-import Menu from './components/Menu'
-import CartDrawer from './components/CartDrawer'
-import Checkout from './components/Checkout'
-import OrderStatus from './components/OrderStatus'
+import { useEffect, useState } from 'react'
+import { collection, onSnapshot } from 'firebase/firestore'
+import { db } from './firebase'
+import Sidebar from './components/Sidebar'
+import TopBar from './components/TopBar'
+import MetricCard from './components/MetricCard'
+import OrdersTable from './components/OrdersTable'
+import RestaurantsPanel from './components/RestaurantsPanel'
+import RidersPanel from './components/RidersPanel'
+import UsersPanel from './components/UsersPanel'
 import './App.css'
 
+function useCollectionCount(name) {
+  const [count, setCount] = useState(null)
+  useEffect(() => {
+    const unsub = onSnapshot(
+      collection(db, name),
+      (snapshot) => setCount(snapshot.size),
+      () => setCount(null)
+    )
+    return () => unsub()
+  }, [name])
+  return count
+}
+
 export default function App() {
-  const [cartOpen, setCartOpen] = useState(false)
-  const [view, setView] = useState('menu') // 'menu' | 'checkout' | 'confirmation'
-  const [completedOrder, setCompletedOrder] = useState(null)
+  const [section, setSection] = useState('resumen')
+  const [connected, setConnected] = useState(true)
 
-  const handleCheckout = () => {
-    setCartOpen(false)
-    setView('checkout')
-  }
-
-  const handleSuccess = (orderId, form) => {
-    setCompletedOrder({ orderId, form })
-    setView('confirmation')
-  }
-
-  const handleNewOrder = () => {
-    setCompletedOrder(null)
-    setView('menu')
-  }
+  const ordersCount = useCollectionCount('orders')
+  const restaurantsCount = useCollectionCount('restaurants')
+  const usersCount = useCollectionCount('users')
 
   return (
-    <CartProvider>
-      <div className="app-shell">
-        <div className="flame flame--one" aria-hidden="true" />
-        <div className="flame flame--two" aria-hidden="true" />
+    <div className="app-shell">
+      <div className="canopy canopy--one" aria-hidden="true" />
+      <div className="canopy canopy--two" aria-hidden="true" />
 
-        {view !== 'confirmation' && <Header onCartClick={() => setCartOpen(true)} />}
+      <Sidebar active={section} onNavigate={setSection} />
 
-        <main className="app-main">
-          {view === 'menu' && <Menu />}
-          {view === 'checkout' && (
-            <Checkout onBack={() => setView('menu')} onSuccess={handleSuccess} />
+      <div className="app-main">
+        <TopBar section={section} connected={connected} />
+
+        <main className="app-content">
+          {section === 'resumen' && (
+            <>
+              <div className="metrics-grid">
+                <MetricCard
+                  label="Pedidos totales"
+                  value={ordersCount ?? '—'}
+                  hint="Documentos en la colección orders"
+                />
+                <MetricCard
+                  label="Restaurantes"
+                  value={restaurantsCount ?? '—'}
+                  hint="Locales registrados"
+                  tone="mint"
+                />
+                <MetricCard
+                  label="Usuarios"
+                  value={usersCount ?? '—'}
+                  hint="Clientes registrados"
+                  tone="amber"
+                />
+              </div>
+
+              <section className="section-block">
+                <h2 className="section-block__title">Pedidos recientes</h2>
+                <OrdersTable onConnectionChange={setConnected} />
+              </section>
+            </>
           )}
-          {view === 'confirmation' && completedOrder && (
-            <OrderStatus
-              orderId={completedOrder.orderId}
-              form={completedOrder.form}
-              onNewOrder={handleNewOrder}
-            />
+
+          {section === 'pedidos' && (
+            <section className="section-block">
+              <h2 className="section-block__title">Todos los pedidos</h2>
+              <OrdersTable onConnectionChange={setConnected} />
+            </section>
+          )}
+
+          {section === 'restaurantes' && (
+            <section className="section-block">
+              <h2 className="section-block__title">Restaurantes registrados</h2>
+              <RestaurantsPanel />
+            </section>
+          )}
+
+          {section === 'repartidores' && (
+            <section className="section-block">
+              <h2 className="section-block__title">Repartidores en línea</h2>
+              <RidersPanel />
+            </section>
+          )}
+
+          {section === 'usuarios' && (
+            <section className="section-block">
+              <h2 className="section-block__title">Usuarios registrados</h2>
+              <UsersPanel />
+            </section>
           )}
         </main>
-
-        {view === 'menu' && (
-          <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} onCheckout={handleCheckout} />
-        )}
       </div>
-    </CartProvider>
+    </div>
   )
 }
