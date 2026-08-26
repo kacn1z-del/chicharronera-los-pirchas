@@ -34,4 +34,3 @@ export let analytics = null
 isSupported().then((supported) => {
   if (supported) analytics = getAnalytics(app)
 })
-
