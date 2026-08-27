@@ -8,6 +8,7 @@ import OrdersTable from './components/OrdersTable'
 import RestaurantsPanel from './components/RestaurantsPanel'
 import RidersPanel from './components/RidersPanel'
 import UsersPanel from './components/UsersPanel'
+import MenuImportPanel from './components/MenuImportPanel'
 import './App.css'
 
 function useCollectionCount(name) {
@@ -96,6 +97,13 @@ export default function App() {
             <section className="section-block">
               <h2 className="section-block__title">Usuarios registrados</h2>
               <UsersPanel />
+            </section>
+          )}
+
+          {section === 'menu' && (
+            <section className="section-block">
+              <h2 className="section-block__title">Administrar menú</h2>
+              <MenuImportPanel />
             </section>
           )}
         </main>
