@@ -4,6 +4,7 @@ const NAV_ITEMS = [
   { id: 'restaurantes', label: 'Restaurantes', icon: '⌂' },
   { id: 'repartidores', label: 'Repartidores', icon: '➜' },
   { id: 'usuarios', label: 'Usuarios', icon: '◎' },
+  { id: 'menu', label: 'Menú', icon: '🍽' },
 ]
 
 export default function Sidebar({ active, onNavigate }) {
