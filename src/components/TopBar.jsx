@@ -4,6 +4,7 @@ const TITLES = {
   restaurantes: ['Restaurantes', 'Locales registrados en la plataforma'],
   repartidores: ['Repartidores', 'Ubicación y disponibilidad del equipo de entrega'],
   usuarios: ['Usuarios', 'Clientes registrados en Los Pirchas'],
+  menu: ['Menú', 'Importar y administrar los platos del menú'],
 }
 
 export default function TopBar({ section, connected }) {
@@ -22,4 +23,3 @@ export default function TopBar({ section, connected }) {
     </header>
   )
 }
-
