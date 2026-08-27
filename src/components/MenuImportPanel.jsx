@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { collection, getDocs, writeBatch, doc } from 'firebase/firestore'
+import { collection, getDocs, writeBatch, doc, deleteDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { MENU_SEED } from '../data/menuSeed'
 
 export default function MenuImportPanel() {
-  const [status, setStatus] = useState('idle') // idle | checking | importing | done | error
+  const [status, setStatus] = useState('idle') // idle | checking | importing | cleaning | done | error
   const [message, setMessage] = useState('')
   const [existingCount, setExistingCount] = useState(null)
 
@@ -41,6 +41,41 @@ export default function MenuImportPanel() {
     }
   }
 
+  const handleCleanDuplicates = async () => {
+    setStatus('cleaning')
+    setMessage('')
+    try {
+      const snap = await getDocs(collection(db, 'Menu'))
+      const seen = new Map() // clave "nombre|categoria|precio" -> primer doc.id conservado
+      const toDelete = []
+
+      snap.docs.forEach((docSnap) => {
+        const data = docSnap.data()
+        const key = `${data.nombre}|${data.categoria}|${data.precio}`
+        if (seen.has(key)) {
+          toDelete.push(docSnap.id)
+        } else {
+          seen.set(key, docSnap.id)
+        }
+      })
+
+      if (toDelete.length === 0) {
+        setStatus('done')
+        setMessage('No se encontraron duplicados — el menú ya está limpio.')
+        return
+      }
+
+      await Promise.all(toDelete.map((id) => deleteDoc(doc(db, 'Menu', id))))
+
+      setStatus('done')
+      setMessage(`Se eliminaron ${toDelete.length} platos duplicados.`)
+      setExistingCount((prev) => (prev ?? toDelete.length) - toDelete.length)
+    } catch (err) {
+      setStatus('error')
+      setMessage(err.message)
+    }
+  }
+
   return (
     <div className="panel import-panel">
       <div className="import-panel__body">
@@ -66,12 +101,20 @@ export default function MenuImportPanel() {
           <button className="btn-primary" onClick={handleImport} disabled={status === 'importing'}>
             {status === 'importing' ? 'Importando…' : 'Importar menú ahora'}
           </button>
+          <button
+            className="btn-secondary"
+            onClick={handleCleanDuplicates}
+            disabled={status === 'cleaning'}
+          >
+            {status === 'cleaning' ? 'Limpiando…' : 'Eliminar duplicados'}
+          </button>
         </div>
 
         {existingCount > 0 && (
           <p className="import-panel__warning">
-            ⚠️ Ya hay platos cargados. Si volvés a importar, se van a duplicar (no reemplaza, agrega de
-            nuevo). Si eso pasa, borrá los duplicados a mano desde Firebase Console.
+            ⚠️ Si tocás "Importar menú ahora" más de una vez, se duplican los platos. Si eso pasa, usá el
+            botón "Eliminar duplicados" — conserva un solo plato de cada combinación
+            nombre + categoría + precio y borra el resto.
           </p>
         )}
       </div>
