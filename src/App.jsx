@@ -9,6 +9,7 @@ import RestaurantsPanel from './components/RestaurantsPanel'
 import RidersPanel from './components/RidersPanel'
 import UsersPanel from './components/UsersPanel'
 import MenuImportPanel from './components/MenuImportPanel'
+import MenuEditor from './components/MenuEditor'
 import './App.css'
 
 function useCollectionCount(name) {
@@ -104,6 +105,8 @@ export default function App() {
             <section className="section-block">
               <h2 className="section-block__title">Administrar menú</h2>
               <MenuImportPanel />
+              <div style={{ height: '20px' }} />
+              <MenuEditor />
             </section>
           )}
         </main>
@@ -111,4 +114,3 @@ export default function App() {
     </div>
   )
 }
-
