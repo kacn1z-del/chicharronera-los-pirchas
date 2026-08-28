@@ -41,3 +41,4 @@ export default function Sidebar({ active, onNavigate }) {
     </aside>
   )
 }
+
