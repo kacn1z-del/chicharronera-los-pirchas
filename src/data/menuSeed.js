@@ -164,3 +164,4 @@ export const MENU_SEED = [
     descripcion: 'Espagueti en salsa pesto cremoso, boloñesa o salsa blanca, con pan de ajo, postre y refresco del día. Lunes a viernes, 11am–4pm.',
   },
 ]
+
