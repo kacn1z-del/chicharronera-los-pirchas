@@ -614,3 +614,28 @@
   justify-content: flex-end;
   gap: 10px;
 }
+
+.dish-form__hint {
+  font-size: 12px;
+  color: var(--ink-400);
+}
+
+.dish-form__preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dish-form__preview img {
+  width: 90px;
+  height: 70px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(16, 36, 27, 0.16);
+}
+
+.import-panel__divider {
+  height: 1px;
+  background: rgba(16, 36, 27, 0.1);
+  margin: 4px 0;
+}
