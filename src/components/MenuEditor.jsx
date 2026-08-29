@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { collection, deleteDoc, doc, onSnapshot, updateDoc, addDoc } from 'firebase/firestore'
-import { db } from '../firebase'
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { db, storage } from '../firebase'
 
 function formatColones(value) {
   return `₡${Number(value ?? 0).toLocaleString('es-CR')}`
@@ -218,8 +219,29 @@ export default function MenuEditor() {
 }
 
 function DishForm({ draft, setDraft, onCancel, onSave, saving, saveLabel }) {
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState(null)
+
   const set = (field) => (e) =>
     setDraft((d) => ({ ...d, [field]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }))
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    setUploadError(null)
+    try {
+      const path = `menu/${Date.now()}-${file.name}`
+      const fileRef = ref(storage, path)
+      await uploadBytes(fileRef, file)
+      const url = await getDownloadURL(fileRef)
+      setDraft((d) => ({ ...d, imagenUrl: url }))
+    } catch (err) {
+      setUploadError(err.message)
+    } finally {
+      setUploading(false)
+    }
+  }
 
   return (
     <div className="dish-form">
@@ -247,15 +269,31 @@ function DishForm({ draft, setDraft, onCancel, onSave, saving, saveLabel }) {
         Descripción (opcional)
         <textarea value={draft.descripcion} onChange={set('descripcion')} rows={2} />
       </label>
+
       <label>
-        URL de la foto (opcional)
-        <input value={draft.imagenUrl} onChange={set('imagenUrl')} placeholder="https://…" />
+        Foto del plato
+        <input type="file" accept="image/*" onChange={handleFileChange} disabled={uploading} />
       </label>
+      {uploading && <p className="dish-form__hint">Subiendo foto…</p>}
+      {uploadError && <p className="form-error">No se pudo subir la foto: {uploadError}</p>}
+      {draft.imagenUrl && (
+        <div className="dish-form__preview">
+          <img src={draft.imagenUrl} alt="Vista previa" />
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => setDraft((d) => ({ ...d, imagenUrl: '' }))}
+          >
+            Quitar foto
+          </button>
+        </div>
+      )}
+
       <div className="dish-form__actions">
         <button className="btn-secondary" onClick={onCancel} type="button">
           Cancelar
         </button>
-        <button className="btn-primary" onClick={onSave} disabled={saving} type="button">
+        <button className="btn-primary" onClick={onSave} disabled={saving || uploading} type="button">
           {saving ? 'Guardando…' : saveLabel}
         </button>
       </div>
