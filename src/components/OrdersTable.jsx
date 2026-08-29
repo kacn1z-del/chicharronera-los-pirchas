@@ -24,7 +24,7 @@ function formatTime(createdAt) {
 function whatsappLink(order) {
   const phone = (order.clientPhone || '').replace(/[^\d]/g, '')
   const message = encodeURIComponent(
-    `Hola ${order.clientName || ''}, tu pedido #${order.id.slice(0, 6)} en Acosta Food está: ${
+    `Hola ${order.clientName || ''}, tu pedido #${order.id.slice(0, 6)} en la chicharronera Los Pirchas está: ${
       statusInfo(order.status).label
     }.`
   )
