@@ -32,6 +32,11 @@ function whatsappLink(order) {
   return `https://wa.me/${phone}?text=${message}`
 }
 
+function itemsSummary(order) {
+  if (!Array.isArray(order.items) || order.items.length === 0) return '—'
+  return order.items.map((i) => `${i.qty}× ${i.nombre}${i.nota ? ` (${i.nota})` : ''}`).join(', ')
+}
+
 export default function OrdersTable({ onConnectionChange }) {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -87,7 +92,9 @@ export default function OrdersTable({ onConnectionChange }) {
         <thead>
           <tr>
             <th>Cliente</th>
+            <th>Mesa</th>
             <th>Restaurante</th>
+            <th>Pedido</th>
             <th>Estado</th>
             <th>Hora</th>
             <th>WhatsApp</th>
@@ -99,8 +106,13 @@ export default function OrdersTable({ onConnectionChange }) {
             const link = whatsappLink(order)
             return (
               <tr key={order.id}>
-                <td>{order.clientName || order.clientId || '—'}</td>
+                <td>
+                  {order.clientName || order.clientId || '—'}
+                  {order.mesero && <div className="order-sub mono">Mesero: {order.mesero}</div>}
+                </td>
+                <td>{order.mesa ? order.mesa : '—'}</td>
                 <td>{order.restaurantName || order.restaurantId || '—'}</td>
+                <td className="order-items">{itemsSummary(order)}</td>
                 <td>
                   <span className={`badge badge--${status.tone}`}>{status.label}</span>
                 </td>
