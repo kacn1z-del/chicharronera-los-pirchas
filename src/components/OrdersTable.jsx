@@ -95,6 +95,7 @@ export default function OrdersTable({ onConnectionChange }) {
 
   return (
     <div className="panel">
+      <div className="orders-table-wrap">
       <table className="orders-table">
         <thead>
           <tr>
@@ -140,6 +141,7 @@ export default function OrdersTable({ onConnectionChange }) {
           })}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }
