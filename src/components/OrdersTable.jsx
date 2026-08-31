@@ -37,6 +37,13 @@ function itemsSummary(order) {
   return order.items.map((i) => `${i.qty}× ${i.nombre}${i.nota ? ` (${i.nota})` : ''}`).join(', ')
 }
 
+function serviceLabel(order) {
+  if (order.tipo === 'salon') return 'En mesa'
+  if (order.tipo === 'llevar') return 'Para llevar'
+  if (order.tipo === 'express') return 'Express'
+  return null
+}
+
 export default function OrdersTable({ onConnectionChange }) {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -97,7 +104,7 @@ export default function OrdersTable({ onConnectionChange }) {
             <th>Pedido</th>
             <th>Estado</th>
             <th>Hora</th>
-            <th>WhatsApp</th>
+            <th>Contacto</th>
           </tr>
         </thead>
         <tbody>
@@ -118,7 +125,9 @@ export default function OrdersTable({ onConnectionChange }) {
                 </td>
                 <td className="mono">{formatTime(order.createdAt)}</td>
                 <td>
-                  {link ? (
+                  {order.mesa ? (
+                    <span className="badge badge--gray">{serviceLabel(order)}</span>
+                  ) : link ? (
                     <a className="wa-button" href={link} target="_blank" rel="noreferrer">
                       Notificar
                     </a>
