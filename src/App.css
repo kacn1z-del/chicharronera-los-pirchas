@@ -276,13 +276,14 @@
   font-size: 13px;
 }
 
-.orders-table col.col-cliente { width: 16%; }
-.orders-table col.col-mesa { width: 8%; }
-.orders-table col.col-restaurante { width: 12%; }
-.orders-table col.col-pedido { width: 28%; }
-.orders-table col.col-estado { width: 12%; }
-.orders-table col.col-hora { width: 10%; }
-.orders-table col.col-contacto { width: 14%; }
+.orders-table col.col-cliente { width: 14%; }
+.orders-table col.col-mesa { width: 6%; }
+.orders-table col.col-restaurante { width: 10%; }
+.orders-table col.col-pedido { width: 22%; }
+.orders-table col.col-estado { width: 10%; }
+.orders-table col.col-hora { width: 8%; }
+.orders-table col.col-contacto { width: 12%; }
+.orders-table col.col-acciones { width: 18%; }
 
 .orders-table th {
   text-align: left;
@@ -316,6 +317,47 @@
 .order-items {
   font-size: 12px;
   color: var(--ink-600);
+}
+
+.order-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.action-btn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-btn--blue {
+  background: rgba(63, 122, 200, 0.14);
+  color: #2f5aa8;
+}
+
+.action-btn--green {
+  background: rgba(63, 152, 104, 0.16);
+  color: var(--status-green);
+}
+
+.action-btn--amber {
+  background: rgba(232, 163, 61, 0.16);
+  color: #a86a1c;
+}
+
+.action-btn--red {
+  background: rgba(201, 47, 28, 0.12);
+  color: var(--red-500);
 }
 
 /* Below ~640px, drop table layout entirely and stack each order as a card */
