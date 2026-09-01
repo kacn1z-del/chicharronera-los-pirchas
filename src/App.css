@@ -557,6 +557,14 @@
     padding-left: 18px;
     padding-right: 18px;
   }
+
+  .fp-fullscreen {
+    padding: 12px;
+  }
+
+  .fp-fullscreen .floor-plan {
+    width: min(96vw, calc(80vh * 100 / 62));
+  }
 }
 
 /* Menu import panel */
@@ -753,6 +761,69 @@
   padding: 18px;
 }
 
+/* Pantalla completa: el panel pasa a cubrir toda la ventana (encima del menú
+   lateral y el encabezado) sin necesidad de desmontarlos. La Fullscreen API
+   real del navegador se activa aparte cuando el dispositivo la soporta. */
+.fp-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: var(--char-950);
+  border-radius: 0;
+  border: none;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.fp-fullscreen .fp-legend {
+  color: var(--gold-200);
+  flex-shrink: 0;
+}
+
+.fp-fullscreen .floor-plan-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-color: var(--char-700);
+}
+
+.fp-fullscreen .floor-plan {
+  width: min(94vw, calc(88vh * 100 / 62));
+  flex-shrink: 0;
+}
+
+.fp-fullscreen-btn {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-600);
+}
+
+.fp-fullscreen-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.fp-fullscreen .fp-fullscreen-btn {
+  color: var(--gold-200);
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.fp-fullscreen .fp-fullscreen-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
 .fp-legend {
   display: flex;
   gap: 18px;
@@ -760,6 +831,7 @@
   font-size: 12px;
   color: var(--ink-600);
   margin: 0 0 14px;
+  flex-wrap: wrap;
 }
 
 .fp-legend span {
