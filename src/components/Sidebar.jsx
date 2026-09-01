@@ -5,6 +5,7 @@ const NAV_ITEMS = [
   { id: 'repartidores', label: 'Repartidores', icon: '➜' },
   { id: 'usuarios', label: 'Usuarios', icon: '◎' },
   { id: 'menu', label: 'Menú', icon: '🍽' },
+  { id: 'inventario', label: 'Inventario', icon: '📦' },
 ]
 
 export default function Sidebar({ active, onNavigate }) {
