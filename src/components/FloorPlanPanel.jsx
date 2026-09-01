@@ -55,6 +55,33 @@ export default function FloorPlanPanel() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedMesa, setSelectedMesa] = useState(null)
+  const [fullscreen, setFullscreen] = useState(false)
+
+  useEffect(() => {
+    // Si el mesero sale de pantalla completa con Esc o un gesto del sistema,
+    // sincronizamos el estado del botón (relevante en navegadores/tablets que
+    // sí soportan la Fullscreen API; en iPhone/Safari este evento simplemente
+    // no llega, pero el modo "pantalla completa" dentro de la app sigue
+    // funcionando igual porque no depende de esta API).
+    const onFsChange = () => {
+      if (!document.fullscreenElement) setFullscreen(false)
+    }
+    document.addEventListener('fullscreenchange', onFsChange)
+    return () => document.removeEventListener('fullscreenchange', onFsChange)
+  }, [])
+
+  function toggleFullscreen() {
+    const next = !fullscreen
+    setFullscreen(next)
+    const el = document.documentElement
+    if (next) {
+      const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen
+      if (req) req.call(el).catch(() => {})
+    } else if (document.fullscreenElement) {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen
+      if (exit) exit.call(document).catch(() => {})
+    }
+  }
 
   useEffect(() => {
     const q = query(collection(db, 'orders'), where('mesaAbierta', '==', true))
@@ -90,10 +117,13 @@ export default function FloorPlanPanel() {
   }
 
   return (
-    <div className="panel floor-plan-panel">
+    <div className={`panel floor-plan-panel ${fullscreen ? 'fp-fullscreen' : ''}`}>
       <div className="fp-legend">
         <span><i className="free" />Libre</span>
         <span><i className="busy" />Ocupada</span>
+        <button type="button" className="fp-fullscreen-btn" onClick={toggleFullscreen}>
+          {fullscreen ? '✕ Salir de pantalla completa' : '⛶ Pantalla completa'}
+        </button>
       </div>
       <div className="floor-plan-wrap">
         <div className="floor-plan">
