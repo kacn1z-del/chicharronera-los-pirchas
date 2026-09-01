@@ -11,6 +11,7 @@ import UsersPanel from './components/UsersPanel'
 import MenuImportPanel from './components/MenuImportPanel'
 import MenuEditor from './components/MenuEditor'
 import InventoryPanel from './components/InventoryPanel'
+import FloorPlanPanel from './components/FloorPlanPanel'
 import './App.css'
 
 function useCollectionCount(name) {
@@ -72,6 +73,13 @@ export default function App() {
                 <OrdersTable onConnectionChange={setConnected} />
               </section>
             </>
+          )}
+
+          {section === 'salon' && (
+            <section className="section-block">
+              <h2 className="section-block__title">Distribución del salón</h2>
+              <FloorPlanPanel />
+            </section>
           )}
 
           {section === 'pedidos' && (
