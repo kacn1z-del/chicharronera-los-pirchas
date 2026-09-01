@@ -249,7 +249,6 @@
 .panel {
   background: var(--glass-strong);
   border: 1px solid var(--glass-border);
-  backdrop-filter: blur(18px);
   border-radius: var(--radius-lg);
   overflow: hidden;
 }
@@ -272,9 +271,18 @@
 /* Orders table */
 .orders-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 13px;
 }
+
+.orders-table col.col-cliente { width: 16%; }
+.orders-table col.col-mesa { width: 8%; }
+.orders-table col.col-restaurante { width: 12%; }
+.orders-table col.col-pedido { width: 28%; }
+.orders-table col.col-estado { width: 12%; }
+.orders-table col.col-hora { width: 10%; }
+.orders-table col.col-contacto { width: 14%; }
 
 .orders-table th {
   text-align: left;
@@ -282,14 +290,17 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--ink-400);
-  padding: 14px 20px;
+  padding: 14px 12px;
   border-bottom: 1px solid rgba(16, 36, 27, 0.08);
+  overflow-wrap: break-word;
 }
 
 .orders-table td {
-  padding: 14px 20px;
+  padding: 14px 12px;
   border-bottom: 1px solid rgba(16, 36, 27, 0.06);
   color: var(--ink-900);
+  overflow-wrap: break-word;
+  vertical-align: top;
 }
 
 .orders-table tr:last-child td {
@@ -303,9 +314,39 @@
 }
 
 .order-items {
-  max-width: 260px;
   font-size: 12px;
   color: var(--ink-600);
+}
+
+/* Below ~640px, drop table layout entirely and stack each order as a card */
+@media (max-width: 640px) {
+  .orders-table thead {
+    display: none;
+  }
+  .orders-table,
+  .orders-table tbody,
+  .orders-table tr,
+  .orders-table td {
+    display: block;
+    width: 100% !important;
+  }
+  .orders-table tr {
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(16, 36, 27, 0.1);
+  }
+  .orders-table td {
+    padding: 3px 0;
+    border-bottom: none;
+  }
+  .orders-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-400);
+    margin-bottom: 2px;
+  }
 }
 
 /* Badges */
@@ -455,12 +496,6 @@
   .app-content {
     padding-left: 18px;
     padding-right: 18px;
-  }
-
-  .orders-table {
-    display: block;
-    overflow-x: auto;
-    white-space: nowrap;
   }
 }
 
