@@ -95,8 +95,16 @@ export default function OrdersTable({ onConnectionChange }) {
 
   return (
     <div className="panel">
-      <div className="orders-table-wrap">
       <table className="orders-table">
+        <colgroup>
+          <col className="col-cliente" />
+          <col className="col-mesa" />
+          <col className="col-restaurante" />
+          <col className="col-pedido" />
+          <col className="col-estado" />
+          <col className="col-hora" />
+          <col className="col-contacto" />
+        </colgroup>
         <thead>
           <tr>
             <th>Cliente</th>
@@ -114,18 +122,18 @@ export default function OrdersTable({ onConnectionChange }) {
             const link = whatsappLink(order)
             return (
               <tr key={order.id}>
-                <td>
+                <td data-label="Cliente">
                   {order.clientName || order.clientId || '—'}
                   {order.mesero && <div className="order-sub mono">Mesero: {order.mesero}</div>}
                 </td>
-                <td>{order.mesa ? order.mesa : '—'}</td>
-                <td>{order.restaurantName || order.restaurantId || '—'}</td>
-                <td className="order-items">{itemsSummary(order)}</td>
-                <td>
+                <td data-label="Mesa">{order.mesa ? order.mesa : '—'}</td>
+                <td data-label="Restaurante">{order.restaurantName || order.restaurantId || '—'}</td>
+                <td className="order-items" data-label="Pedido">{itemsSummary(order)}</td>
+                <td data-label="Estado">
                   <span className={`badge badge--${status.tone}`}>{status.label}</span>
                 </td>
-                <td className="mono">{formatTime(order.createdAt)}</td>
-                <td>
+                <td className="mono" data-label="Hora">{formatTime(order.createdAt)}</td>
+                <td data-label="Contacto">
                   {order.mesa ? (
                     <span className="badge badge--gray">{serviceLabel(order)}</span>
                   ) : link ? (
@@ -141,7 +149,6 @@ export default function OrdersTable({ onConnectionChange }) {
           })}
         </tbody>
       </table>
-      </div>
     </div>
   )
 }
