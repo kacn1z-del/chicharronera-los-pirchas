@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore'
+import { collection, deleteDoc, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 
 const STATUS_LABELS = {
@@ -48,6 +48,7 @@ export default function OrdersTable({ onConnectionChange }) {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [busyId, setBusyId] = useState(null)
 
   useEffect(() => {
     const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'))
@@ -67,6 +68,32 @@ export default function OrdersTable({ onConnectionChange }) {
     )
     return () => unsub()
   }, [onConnectionChange])
+
+  const setStatus = async (orderId, newStatus) => {
+    setBusyId(orderId)
+    try {
+      await updateDoc(doc(db, 'orders', orderId), { status: newStatus })
+    } catch (err) {
+      console.error(err)
+      alert('No se pudo actualizar el pedido: ' + err.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const removeOrder = async (order) => {
+    const label = order.clientName || order.mesa || order.id.slice(0, 6)
+    if (!window.confirm(`¿Eliminar el pedido de "${label}"? Esto no se puede deshacer.`)) return
+    setBusyId(order.id)
+    try {
+      await deleteDoc(doc(db, 'orders', order.id))
+    } catch (err) {
+      console.error(err)
+      alert('No se pudo eliminar el pedido: ' + err.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   if (loading) {
     return <div className="panel panel--empty">Cargando pedidos…</div>
@@ -104,6 +131,7 @@ export default function OrdersTable({ onConnectionChange }) {
           <col className="col-estado" />
           <col className="col-hora" />
           <col className="col-contacto" />
+          <col className="col-acciones" />
         </colgroup>
         <thead>
           <tr>
@@ -114,6 +142,7 @@ export default function OrdersTable({ onConnectionChange }) {
             <th>Estado</th>
             <th>Hora</th>
             <th>Contacto</th>
+            <th>Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -143,6 +172,48 @@ export default function OrdersTable({ onConnectionChange }) {
                   ) : (
                     <span className="wa-button wa-button--disabled">Sin teléfono</span>
                   )}
+                </td>
+                <td data-label="Acciones">
+                  <div className="order-actions">
+                    {order.status !== 'preparing' && (
+                      <button
+                        type="button"
+                        className="action-btn action-btn--blue"
+                        disabled={busyId === order.id}
+                        onClick={() => setStatus(order.id, 'preparing')}
+                      >
+                        Preparando
+                      </button>
+                    )}
+                    {order.status !== 'delivered' && (
+                      <button
+                        type="button"
+                        className="action-btn action-btn--green"
+                        disabled={busyId === order.id}
+                        onClick={() => setStatus(order.id, 'delivered')}
+                      >
+                        Entregado
+                      </button>
+                    )}
+                    {order.status !== 'cancelled' && (
+                      <button
+                        type="button"
+                        className="action-btn action-btn--amber"
+                        disabled={busyId === order.id}
+                        onClick={() => setStatus(order.id, 'cancelled')}
+                      >
+                        Cancelar
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="action-btn action-btn--red"
+                      disabled={busyId === order.id}
+                      onClick={() => removeOrder(order)}
+                    >
+                      Eliminar
+                    </button>
+                  </div>
                 </td>
               </tr>
             )
