@@ -10,6 +10,11 @@ const STATUS_LABELS = {
   cancelled: { label: 'Cancelado', tone: 'red' },
 }
 
+const FACTURA_LABELS = {
+  aceptado: { label: 'Facturado', tone: 'green' },
+  rechazado: { label: 'Rechazado', tone: 'red' },
+}
+
 function statusInfo(status) {
   return STATUS_LABELS[status] ?? { label: status || 'Sin estado', tone: 'gray' }
 }
@@ -49,6 +54,7 @@ export default function OrdersTable({ onConnectionChange }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [busyId, setBusyId] = useState(null)
+  const [facturandoId, setFacturandoId] = useState(null)
 
   useEffect(() => {
     const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'))
@@ -92,6 +98,29 @@ export default function OrdersTable({ onConnectionChange }) {
       alert('No se pudo eliminar el pedido: ' + err.message)
     } finally {
       setBusyId(null)
+    }
+  }
+
+  const facturarOrder = async (order) => {
+    if (order.facturaEstado === 'aceptado') return
+    if (!window.confirm(`¿Emitir comprobante electrónico para este pedido?`)) return
+    setFacturandoId(order.id)
+    try {
+      const res = await fetch('/api/facturar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: order.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error + (data.motivo ? `: ${data.motivo}` : ''))
+      }
+      alert(`Comprobante aceptado por Hacienda.\nClave: ${data.clave}`)
+    } catch (err) {
+      console.error(err)
+      alert('No se pudo facturar el pedido: ' + err.message)
+    } finally {
+      setFacturandoId(null)
     }
   }
 
@@ -149,6 +178,7 @@ export default function OrdersTable({ onConnectionChange }) {
           {orders.map((order) => {
             const status = statusInfo(order.status)
             const link = whatsappLink(order)
+            const factura = order.facturaEstado ? FACTURA_LABELS[order.facturaEstado] : null
             return (
               <tr key={order.id}>
                 <td data-label="Cliente">
@@ -160,6 +190,11 @@ export default function OrdersTable({ onConnectionChange }) {
                 <td className="order-items" data-label="Pedido">{itemsSummary(order)}</td>
                 <td data-label="Estado">
                   <span className={`badge badge--${status.tone}`}>{status.label}</span>
+                  {factura && (
+                    <div className="order-sub">
+                      <span className={`badge badge--${factura.tone}`}>{factura.label}</span>
+                    </div>
+                  )}
                 </td>
                 <td className="mono" data-label="Hora">{formatTime(order.createdAt)}</td>
                 <td data-label="Contacto">
@@ -207,6 +242,18 @@ export default function OrdersTable({ onConnectionChange }) {
                     )}
                     <button
                       type="button"
+                      className="action-btn action-btn--purple"
+                      disabled={facturandoId === order.id || order.facturaEstado === 'aceptado'}
+                      onClick={() => facturarOrder(order)}
+                    >
+                      {facturandoId === order.id
+                        ? 'Facturando…'
+                        : order.facturaEstado === 'aceptado'
+                        ? 'Facturado ✔️'
+                        : 'Facturar'}
+                    </button>
+                    <button
+                      type="button"
                       className="action-btn action-btn--red"
                       disabled={busyId === order.id}
                       onClick={() => removeOrder(order)}
@@ -223,4 +270,3 @@ export default function OrdersTable({ onConnectionChange }) {
     </div>
   )
 }
-
