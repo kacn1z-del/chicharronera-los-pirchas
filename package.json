@@ -12,7 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@dojocoding/hacienda-sdk": "^1.0.0",
+    "@dojocoding/hacienda-sdk": "latest",
     "firebase": "^10.14.1",
     "firebase-admin": "^12.6.0",
     "react": "^18.3.1",
