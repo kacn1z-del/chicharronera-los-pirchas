@@ -360,6 +360,11 @@
   color: var(--red-500);
 }
 
+.action-btn--purple {
+  background: rgba(124, 58, 179, 0.14);
+  color: #7c3ab3;
+}
+
 .stock-ctrl {
   display: inline-flex;
   align-items: center;
