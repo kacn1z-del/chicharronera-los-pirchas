@@ -49,6 +49,59 @@ function serviceLabel(order) {
   return null
 }
 
+function formatColones(value) {
+  return `₡${Number(value ?? 0).toLocaleString('es-CR')}`
+}
+
+function printReceipt(order) {
+  const itemsHtml = (order.items || [])
+    .map(
+      (item) =>
+        `<div class="row"><span>${item.qty} × ${item.nombre}</span><span>${formatColones(
+          item.precio * item.qty
+        )}</span></div>`
+    )
+    .join('')
+
+  const html = `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Recibo — Los Pirchas</title>
+<style>
+  body { font-family: -apple-system, sans-serif; color: #241c15; padding: 24px; max-width: 360px; margin: 0 auto; }
+  .center { text-align: center; }
+  h1 { font-size: 18px; margin: 8px 0 2px; }
+  .sub { font-size: 11px; color: #8f7c68; margin-bottom: 14px; }
+  .meta { font-size: 12px; color: #6b5843; margin: 2px 0; }
+  .items { margin: 16px 0; padding: 12px 0; border-top: 1px dashed #c9c0b3; border-bottom: 1px dashed #c9c0b3; }
+  .row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+  .total { display: flex; justify-content: space-between; font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+  .payment { font-size: 11px; color: #8f7c68; text-align: center; margin-top: 4px; }
+</style>
+</head>
+<body>
+  <div class="center">
+    <h1>Los Pirchas</h1>
+    <p class="sub">Restaurante y Chicharronera</p>
+  </div>
+  <p class="meta center">Pedido #${order.id.slice(0, 6)} · ${formatTime(order.createdAt)}</p>
+  <p class="meta center">${order.clientName || order.mesa || ''}${order.clientPhone ? ' · ' + order.clientPhone : ''}</p>
+  ${order.clientAddress ? `<p class="meta center">${order.clientAddress}</p>` : ''}
+  <div class="items">${itemsHtml}</div>
+  <div class="total"><span>Total</span><span>${formatColones(order.total)}</span></div>
+  <p class="payment">Pago: ${order.paymentMethod || '—'}</p>
+  <script>window.onload = () => { window.print(); };</script>
+</body>
+</html>`
+
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) return
+  printWindow.document.open()
+  printWindow.document.write(html)
+  printWindow.document.close()
+}
+
 export default function OrdersTable({ onConnectionChange }) {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -251,6 +304,13 @@ export default function OrdersTable({ onConnectionChange }) {
                         : order.facturaEstado === 'aceptado'
                         ? 'Facturado ✔️'
                         : 'Facturar'}
+                    </button>
+                    <button
+                      type="button"
+                      className="action-btn action-btn--blue"
+                      onClick={() => printReceipt(order)}
+                    >
+                      🖨️ Imprimir
                     </button>
                     <button
                       type="button"
