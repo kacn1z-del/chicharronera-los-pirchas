@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { collection, deleteDoc, doc, onSnapshot, updateDoc, addDoc } from 'firebase/firestore'
+import { collection, deleteDoc, doc, onSnapshot, updateDoc, addDoc, getDocs, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase'
+import { INVENTARIO_SEED } from '../data/inventarioSeed'
 
 const UNIDADES = ['unidades', 'kg', 'g', 'l', 'ml', 'paquetes', 'cajas']
 
@@ -18,6 +19,8 @@ export default function InventoryPanel() {
   const [filter, setFilter] = useState('')
   const [saving, setSaving] = useState(false)
   const [busyId, setBusyId] = useState(null)
+  const [importStatus, setImportStatus] = useState('idle') // idle | importing | done | error
+  const [importMessage, setImportMessage] = useState('')
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -118,6 +121,50 @@ export default function InventoryPanel() {
     }
   }
 
+  const handleImportSeed = async () => {
+    setImportStatus('importing')
+    setImportMessage('')
+    try {
+      // Evitamos duplicados: comparamos contra los nombres que ya existen en
+      // Firestore (no solo los cargados en pantalla) por si el panel tiene un filtro activo.
+      const snap = await getDocs(collection(db, 'inventario'))
+      const existingNames = new Set(snap.docs.map((d) => (d.data().nombre || '').trim().toLowerCase()))
+      const toAdd = INVENTARIO_SEED.filter((it) => !existingNames.has(it.nombre.trim().toLowerCase()))
+
+      if (toAdd.length === 0) {
+        setImportStatus('done')
+        setImportMessage('Todos esos productos ya estaban en el inventario — no se agregó nada nuevo.')
+        return
+      }
+
+      // Firestore permite hasta 500 escrituras por batch — esta lista entra en uno solo.
+      const batch = writeBatch(db)
+      const invRef = collection(db, 'inventario')
+      toAdd.forEach((it) => {
+        const newDoc = doc(invRef)
+        batch.set(newDoc, {
+          nombre: it.nombre,
+          categoria: it.categoria,
+          cantidad: 0,
+          unidad: 'unidades',
+          minimo: null,
+          notas: null,
+        })
+      })
+      await batch.commit()
+
+      const omitidos = INVENTARIO_SEED.length - toAdd.length
+      setImportStatus('done')
+      setImportMessage(
+        `Se agregaron ${toAdd.length} productos nuevos.` +
+          (omitidos > 0 ? ` (${omitidos} ya existían y se omitieron.)` : '')
+      )
+    } catch (err) {
+      setImportStatus('error')
+      setImportMessage(err.message)
+    }
+  }
+
   if (loading) return <div className="panel panel--empty">Cargando inventario…</div>
 
   if (error) {
@@ -147,10 +194,21 @@ export default function InventoryPanel() {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
+        <button
+          className="btn-secondary"
+          onClick={handleImportSeed}
+          disabled={importStatus === 'importing'}
+        >
+          {importStatus === 'importing' ? 'Importando…' : `Importar lista inicial (${INVENTARIO_SEED.length})`}
+        </button>
         <button className="btn-primary" onClick={startAdd}>
           + Agregar producto
         </button>
       </div>
+
+      {importMessage && (
+        <p className={importStatus === 'error' ? 'form-error' : 'panel-hint'}>{importMessage}</p>
+      )}
 
       {adding && (
         <InventoryForm
