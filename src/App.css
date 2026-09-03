@@ -1017,3 +1017,19 @@
   padding-top: 8px;
   border-top: 1px solid rgba(16, 36, 27, 0.14);
 }
+
+/* Panel de inventario: importación masiva */
+.panel-hint {
+  color: var(--ink-600);
+  font-size: 13px;
+  margin: -6px 0 0;
+}
+
+.form-error {
+  background: rgba(201, 47, 28, 0.1);
+  color: var(--red-500);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  margin: -6px 0 0;
+}
