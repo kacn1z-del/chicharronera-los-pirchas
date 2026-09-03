@@ -157,3 +157,4 @@ export const INVENTARIO_SEED = [
   { nombre: 'Bufalo', categoria: 'Aderezos' },
   { nombre: 'Mostaza-Miel', categoria: 'Aderezos' },
 ]
+
