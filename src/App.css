@@ -566,10 +566,6 @@
   .fp-fullscreen {
     padding: 12px;
   }
-
-  .fp-fullscreen .floor-plan {
-    width: min(96vw, calc(80vh * 100 / 62));
-  }
 }
 
 /* Menu import panel */
@@ -789,15 +785,8 @@
 
 .fp-fullscreen .floor-plan-wrap {
   flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow-y: auto;
   border-color: var(--char-700);
-}
-
-.fp-fullscreen .floor-plan {
-  width: min(94vw, calc(88vh * 100 / 62));
-  flex-shrink: 0;
 }
 
 .fp-fullscreen-btn {
@@ -868,17 +857,45 @@
   border: 1px solid var(--char-700);
   border-radius: var(--radius-lg);
   background: var(--char-900);
-  padding: 12px;
+  padding: 16px;
 }
 
 .floor-plan {
-  position: relative;
-  width: 1000px;
-  aspect-ratio: 100 / 62;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.fp-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.fp-row--inner {
+  gap: 24px;
+  flex: 1;
+}
+
+.fp-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.fp-cluster--col {
+  flex-direction: column;
+}
+
+.fp-cluster--right {
+  margin-left: auto;
 }
 
 .fp-item {
-  position: absolute;
+  width: 64px;
+  aspect-ratio: 1 / 1;
+  flex: 0 0 auto;
   border-radius: 10px;
   border: 1px solid #3f9868;
   background: linear-gradient(160deg, #2c4a3a, #1f3428);
@@ -890,9 +907,11 @@
   gap: 2px;
   font-weight: 700;
   font-family: var(--font-body);
+  font-size: 14px;
   line-height: 1.15;
   text-align: center;
-  padding: 2px;
+  padding: 4px;
+  word-break: break-word;
   cursor: default;
   transition: transform 0.12s ease;
 }
@@ -904,42 +923,14 @@
 }
 
 .fp-item.busy:hover {
-  transform: scale(1.04);
+  transform: scale(1.06);
   z-index: 5;
 }
 
 .fp-item small {
   font-weight: 400;
   opacity: 0.9;
-}
-
-.fp-item.fp-small {
-  font-size: 11px;
-}
-.fp-item.fp-small small {
-  font-size: 8px;
-}
-
-.fp-item.fp-normal {
-  font-size: 14px;
-}
-.fp-item.fp-normal small {
-  font-size: 10px;
-}
-
-.fp-item.fp-big {
-  font-size: 18px;
-}
-.fp-item.fp-big small {
-  font-size: 12px;
-}
-
-.fp-item.fp-bottom {
-  font-size: 12px;
-  border-radius: 12px;
-}
-.fp-item.fp-bottom small {
-  font-size: 10px;
+  font-size: 9px;
 }
 
 /* Detalle del pedido al tocar una mesa ocupada */
