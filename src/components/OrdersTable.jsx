@@ -15,6 +15,24 @@ const FACTURA_LABELS = {
   rechazado: { label: 'Rechazado', tone: 'red' },
 }
 
+const ORIGEN_LABELS = {
+  salon: { label: 'Salón', tone: 'green' },
+  telefono: { label: 'Teléfono', tone: 'blue' },
+  'cliente-web': { label: 'Página web', tone: 'amber' },
+}
+
+export function orderOrigen(order) {
+  if (order.origen) return order.origen
+  // Pedidos creados antes de que existiera el campo "origen": lo inferimos.
+  if (order.mesa) return 'salon'
+  if (order.clientAddress) return 'cliente-web'
+  return 'telefono'
+}
+
+function origenInfo(order) {
+  return ORIGEN_LABELS[orderOrigen(order)] ?? { label: 'Desconocido', tone: 'gray' }
+}
+
 function statusInfo(status) {
   return STATUS_LABELS[status] ?? { label: status || 'Sin estado', tone: 'gray' }
 }
@@ -91,7 +109,7 @@ function printReceipt(order) {
   <div class="items">${itemsHtml}</div>
   <div class="total"><span>Total</span><span>${formatColones(order.total)}</span></div>
   <p class="payment">Pago: ${order.paymentMethod || '—'}</p>
-  <script>window.onload = () => { window.print(); };</script>
+  <script>window.onload = () => { window.print(); };<\/script>
 </body>
 </html>`
 
@@ -211,6 +229,7 @@ export default function OrdersTable({ onConnectionChange }) {
           <col className="col-restaurante" />
           <col className="col-pedido" />
           <col className="col-estado" />
+          <col className="col-canal" />
           <col className="col-hora" />
           <col className="col-contacto" />
           <col className="col-acciones" />
@@ -222,6 +241,7 @@ export default function OrdersTable({ onConnectionChange }) {
             <th>Restaurante</th>
             <th>Pedido</th>
             <th>Estado</th>
+            <th>Canal</th>
             <th>Hora</th>
             <th>Contacto</th>
             <th>Acciones</th>
@@ -230,6 +250,7 @@ export default function OrdersTable({ onConnectionChange }) {
         <tbody>
           {orders.map((order) => {
             const status = statusInfo(order.status)
+            const origen = origenInfo(order)
             const link = whatsappLink(order)
             const factura = order.facturaEstado ? FACTURA_LABELS[order.facturaEstado] : null
             return (
@@ -248,6 +269,14 @@ export default function OrdersTable({ onConnectionChange }) {
                       <span className={`badge badge--${factura.tone}`}>{factura.label}</span>
                     </div>
                   )}
+                  {order.cierreId && (
+                    <div className="order-sub">
+                      <span className="badge badge--gray">En caja cerrada</span>
+                    </div>
+                  )}
+                </td>
+                <td data-label="Canal">
+                  <span className={`badge badge--${origen.tone}`}>{origen.label}</span>
                 </td>
                 <td className="mono" data-label="Hora">{formatTime(order.createdAt)}</td>
                 <td data-label="Contacto">
