@@ -3,18 +3,11 @@
 // Función serverless de Vercel. Se dispara desde el panel admin cuando cerrás
 // una mesa y querés emitir el comprobante electrónico ante Hacienda.
 //
-// POST /api/facturar   body: { "orderId": "..." }
-//
+// Emisor: Jaffet Calderón Carvajal, cédula física, RTS.
 // Emite Factura Electrónica (01) si el pedido trae cédula del cliente,
 // o Tiquete Electrónico (04) si no. Misma sucursal/terminal (001/00001)
-// que el sistema de facturación anterior del restaurante, continuando su
-// numeración de Facturas Electrónicas desde 1000000053 (la última emitida
-// por ese sistema fue 1000000052). Los Tiquetes Electrónicos arrancan en 1
-// porque ese sistema anterior no los emitía.
-//
-// Todo lo sensible (llave .p12, PIN, contraseña de Hacienda, credenciales de
-// Firebase) vive en variables de entorno de Vercel — nunca en este archivo ni
-// en el repo. Ver la lista completa al final de este archivo.
+// que el sistema gratuito de Hacienda que usaba antes, continuando su
+// numeración de Facturas desde 1000000053 (última emitida: 1000000052).
 
 import { initializeApp, getApps, cert } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
@@ -34,14 +27,14 @@ if (!getApps().length) {
 const db = getFirestore()
 
 const EMISOR = {
-  cedula: process.env.HACIENDA_CEDULA, // ej: "3101234567", sin guiones
+  cedula: process.env.HACIENDA_CEDULA, // "113430120" — cédula física de Jaffet Calderón Carvajal
   nombreComercial: 'Los Pirchas',
   correoElectronico: process.env.FACTURACION_EMAIL,
   ubicacion: {
     provincia: '1', // San José
     canton: '12', // Acosta
     distrito: '01', // San Ignacio
-    otrasSenas: 'Costa Rica', // TODO: poner las señas exactas del local
+    otrasSenas: 'Barrio María Auxiliadora, diagonal a la panadería Don Tino, edificio nuevo',
   },
 }
 
@@ -92,7 +85,7 @@ export default async function handler(req, res) {
     const client = new HaciendaClient({
       environment,
       credentials: {
-        idType: '02',
+        idType: '01', // física
         idNumber: EMISOR.cedula,
         password: process.env.HACIENDA_PASSWORD,
       },
@@ -115,7 +108,7 @@ export default async function handler(req, res) {
         clave,
         fecha: new Date().toISOString(),
         emisor: {
-          tipoIdentificacion: '02',
+          tipoIdentificacion: '01',
           numeroIdentificacion: EMISOR.cedula,
         },
         comprobanteXml: xmlFirmadoBase64,
@@ -149,10 +142,6 @@ export default async function handler(req, res) {
   }
 }
 
-// Contador atómico en Firestore, separado por tipo de documento. La primera
-// vez que se facture una Factura Electrónica (01), arranca en 1000000053
-// para continuar la numeración del sistema anterior del restaurante (última
-// emitida: 1000000052). Los Tiquetes Electrónicos (04) arrancan en 1.
 async function getNextSequence(documentType) {
   const counterRef = db.collection('_meta').doc('facturacion')
   const key =
@@ -171,10 +160,3 @@ async function getNextSequence(documentType) {
     return next
   })
 }
-
-// ---------------------------------------------------------------------------
-// Variables de entorno en Vercel (Project Settings -> Environment Variables):
-//
-//   HACIENDA_CEDULA, HACIENDA_PASSWORD, HACIENDA_P12_BASE64, HACIENDA_P12_PIN,
-//   HACIENDA_ENVIRONMENT, FACTURACION_EMAIL, FIREBASE_SERVICE_ACCOUNT_JSON
-// ---------------------------------------------------------------------------
