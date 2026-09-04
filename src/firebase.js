@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { getFirestore } from 'firebase/firestore'
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore'
 import { getDatabase } from 'firebase/database'
 import { getAuth } from 'firebase/auth'
 import { getStorage } from 'firebase/storage'
@@ -17,9 +17,33 @@ const firebaseConfig = {
 }
 
 export const app = initializeApp(firebaseConfig)
-export const db = getFirestore(app, 'default')
+
+// Caché persistente: guarda los datos en el dispositivo (IndexedDB) para que
+// el panel siga funcionando sin internet — se puede seguir viendo mesas,
+// pedidos y menú, y los cambios que se hagan (marcar pedidos, cerrar caja,
+// etc.) quedan en cola y se mandan solos apenas vuelva la señal.
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+}, 'default')
+
 export const auth = getAuth(app)
 export const storage = getStorage(app)
+
+// Firestore NO resuelve las promesas de escritura (addDoc/setDoc/updateDoc)
+// mientras no hay conexión — aunque el dato ya quedó guardado localmente y
+// se manda solo apenas vuelva la señal. Por eso, si estamos offline, no se
+// espera esa promesa (evita que la pantalla se quede "colgada"); si hay
+// conexión, sí se espera, para detectar errores reales al toque.
+//
+// Uso: const { queued } = await writeAndContinue(updateDoc(ref, data))
+export async function writeAndContinue(promise) {
+  if (navigator.onLine) {
+    await promise
+    return { queued: false }
+  }
+  promise.catch(() => {}) // ya quedó en la cola local; evita "unhandled rejection"
+  return { queued: true }
+}
 
 // La Realtime Database es opcional — solo se activa si el proyecto la tiene habilitada
 export let realtimeDB = null
