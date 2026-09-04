@@ -15,6 +15,7 @@
     "@dojocoding/hacienda-sdk": "latest",
     "firebase": "^10.14.1",
     "firebase-admin": "latest",
+    "google-auth-library": "latest",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
