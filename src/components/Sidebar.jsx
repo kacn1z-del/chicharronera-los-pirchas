@@ -2,6 +2,7 @@ const NAV_ITEMS = [
   { id: 'resumen', label: 'Resumen', icon: '◧' },
   { id: 'salon', label: 'Salón', icon: '⛶' },
   { id: 'pedidos', label: 'Pedidos', icon: '☰' },
+  { id: 'caja', label: 'Cierre de caja', icon: '💵' },
   { id: 'restaurantes', label: 'Restaurantes', icon: '⌂' },
   { id: 'repartidores', label: 'Repartidores', icon: '➜' },
   { id: 'usuarios', label: 'Usuarios', icon: '◎' },
