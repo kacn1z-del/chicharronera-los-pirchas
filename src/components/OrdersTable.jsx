@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { collection, deleteDoc, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore'
-import { db } from '../firebase'
+import { db, writeAndContinue } from '../firebase'
 
 const STATUS_LABELS = {
   pending: { label: 'Pendiente', tone: 'amber' },
@@ -149,7 +149,7 @@ export default function OrdersTable({ onConnectionChange }) {
   const setStatus = async (orderId, newStatus) => {
     setBusyId(orderId)
     try {
-      await updateDoc(doc(db, 'orders', orderId), { status: newStatus })
+      await writeAndContinue(updateDoc(doc(db, 'orders', orderId), { status: newStatus }))
     } catch (err) {
       console.error(err)
       alert('No se pudo actualizar el pedido: ' + err.message)
@@ -163,7 +163,7 @@ export default function OrdersTable({ onConnectionChange }) {
     if (!window.confirm(`¿Eliminar el pedido de "${label}"? Esto no se puede deshacer.`)) return
     setBusyId(order.id)
     try {
-      await deleteDoc(doc(db, 'orders', order.id))
+      await writeAndContinue(deleteDoc(doc(db, 'orders', order.id)))
     } catch (err) {
       console.error(err)
       alert('No se pudo eliminar el pedido: ' + err.message)
