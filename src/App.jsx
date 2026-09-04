@@ -12,6 +12,8 @@ import MenuImportPanel from './components/MenuImportPanel'
 import MenuEditor from './components/MenuEditor'
 import InventoryPanel from './components/InventoryPanel'
 import FloorPlanPanel from './components/FloorPlanPanel'
+import CashClosingPanel from './components/CashClosingPanel'
+import PhoneOrderPanel from './components/PhoneOrderPanel'
 import './App.css'
 
 function useCollectionCount(name) {
@@ -30,6 +32,7 @@ function useCollectionCount(name) {
 export default function App() {
   const [section, setSection] = useState('resumen')
   const [connected, setConnected] = useState(true)
+  const [showPhoneOrder, setShowPhoneOrder] = useState(false)
 
   const ordersCount = useCollectionCount('orders')
   const restaurantsCount = useCollectionCount('restaurants')
@@ -84,8 +87,26 @@ export default function App() {
 
           {section === 'pedidos' && (
             <section className="section-block">
-              <h2 className="section-block__title">Todos los pedidos</h2>
+              <div className="section-block__head">
+                <h2 className="section-block__title">Todos los pedidos</h2>
+                <button className="btn-primary" onClick={() => setShowPhoneOrder((v) => !v)}>
+                  {showPhoneOrder ? 'Cancelar' : '+ Pedido telefónico'}
+                </button>
+              </div>
+              {showPhoneOrder && (
+                <PhoneOrderPanel
+                  onCreated={() => setShowPhoneOrder(false)}
+                  onCancel={() => setShowPhoneOrder(false)}
+                />
+              )}
               <OrdersTable onConnectionChange={setConnected} />
+            </section>
+          )}
+
+          {section === 'caja' && (
+            <section className="section-block">
+              <h2 className="section-block__title">Cierre de caja</h2>
+              <CashClosingPanel />
             </section>
           )}
 
