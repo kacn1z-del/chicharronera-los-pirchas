@@ -5,6 +5,13 @@
 //
 // POST /api/facturar   body: { "orderId": "..." }
 //
+// Emite Factura Electrónica (01) si el pedido trae cédula del cliente,
+// o Tiquete Electrónico (04) si no. Misma sucursal/terminal (001/00001)
+// que el sistema de facturación anterior del restaurante, continuando su
+// numeración de Facturas Electrónicas desde 1000000053 (la última emitida
+// por ese sistema fue 1000000052). Los Tiquetes Electrónicos arrancan en 1
+// porque ese sistema anterior no los emitía.
+//
 // Todo lo sensible (llave .p12, PIN, contraseña de Hacienda, credenciales de
 // Firebase) vive en variables de entorno de Vercel — nunca en este archivo ni
 // en el repo. Ver la lista completa al final de este archivo.
@@ -16,27 +23,26 @@ import {
   HttpClient,
   signAndEncode,
   submitAndWait,
+  DocumentType,
 } from '@dojocoding/hacienda-sdk'
-import { buildTiqueteFromOrder } from '../lib/build-tiquete.js'
+import { buildComprobanteFromOrder } from '../lib/build-tiquete.js'
 
-// ---------------------------------------------------------------------------
-// Firebase Admin (para leer/actualizar el pedido en Firestore desde el servidor)
-// ---------------------------------------------------------------------------
 if (!getApps().length) {
   const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)
   initializeApp({ credential: cert(serviceAccount) })
 }
 const db = getFirestore()
 
-// ---------------------------------------------------------------------------
-// Datos fijos del emisor (Los Pirchas) — el número de cédula NO es secreto,
-// pero lo dejamos en variable de entorno igual para no tener que tocar código
-// si algún día cambia.
-// ---------------------------------------------------------------------------
 const EMISOR = {
   cedula: process.env.HACIENDA_CEDULA, // ej: "3101234567", sin guiones
   nombreComercial: 'Los Pirchas',
-  correoElectronico: process.env.FACTURACION_EMAIL, // ej: facturacion@lospirchas.com
+  correoElectronico: process.env.FACTURACION_EMAIL,
+  ubicacion: {
+    provincia: '1', // San José
+    canton: '12', // Acosta
+    distrito: '01', // San Ignacio
+    otrasSenas: 'Costa Rica', // TODO: poner las señas exactas del local
+  },
 }
 
 export default async function handler(req, res) {
@@ -51,7 +57,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. Leer el pedido
     const orderRef = db.collection('orders').doc(orderId)
     const orderSnap = await orderRef.get()
     if (!orderSnap.exists) {
@@ -63,18 +68,19 @@ export default async function handler(req, res) {
       return res.status(409).json({ error: 'Este pedido ya fue facturado' })
     }
 
-    // 2. Consecutivo: usamos un contador aparte en Firestore para no repetir
-    // números aunque se manden varias facturas a la vez.
-    const sequence = await getNextSequence()
+    const esFactura = Boolean(order.clientCedula)
+    const documentType = esFactura
+      ? DocumentType.FACTURA_ELECTRONICA
+      : DocumentType.TIQUETE_ELECTRONICO
 
-    // 3. Armar el XML del tiquete
-    const { xml, clave, numeroConsecutivo } = buildTiqueteFromOrder(
+    const sequence = await getNextSequence(documentType)
+
+    const { xml, clave, numeroConsecutivo } = buildComprobanteFromOrder(
       order,
       EMISOR,
       sequence,
     )
 
-    // 4. Firmar con la llave criptográfica (.p12 en base64 -> buffer)
     const p12Buffer = Buffer.from(process.env.HACIENDA_P12_BASE64, 'base64')
     const xmlFirmadoBase64 = await signAndEncode(
       xml,
@@ -82,12 +88,11 @@ export default async function handler(req, res) {
       process.env.HACIENDA_P12_PIN,
     )
 
-    // 5. Autenticarse contra Hacienda y enviar
-    const environment = process.env.HACIENDA_ENVIRONMENT || 'sandbox' // "sandbox" | "production"
+    const environment = process.env.HACIENDA_ENVIRONMENT || 'sandbox'
     const client = new HaciendaClient({
       environment,
       credentials: {
-        idType: '02', // jurídica
+        idType: '02',
         idNumber: EMISOR.cedula,
         password: process.env.HACIENDA_PASSWORD,
       },
@@ -118,10 +123,10 @@ export default async function handler(req, res) {
       { pollIntervalMs: 3000, timeoutMs: 60000 },
     )
 
-    // 6. Guardar el resultado en el pedido
     await orderRef.update({
       facturaClave: clave,
       facturaConsecutivo: numeroConsecutivo,
+      facturaTipo: esFactura ? 'factura' : 'tiquete',
       facturaEstado: resultado.accepted ? 'aceptado' : 'rechazado',
       facturaRechazoMotivo: resultado.accepted
         ? null
@@ -144,29 +149,32 @@ export default async function handler(req, res) {
   }
 }
 
-// Contador simple y atómico en Firestore para llevar el consecutivo.
-async function getNextSequence() {
+// Contador atómico en Firestore, separado por tipo de documento. La primera
+// vez que se facture una Factura Electrónica (01), arranca en 1000000053
+// para continuar la numeración del sistema anterior del restaurante (última
+// emitida: 1000000052). Los Tiquetes Electrónicos (04) arrancan en 1.
+async function getNextSequence(documentType) {
   const counterRef = db.collection('_meta').doc('facturacion')
+  const key =
+    documentType === DocumentType.FACTURA_ELECTRONICA
+      ? 'facturaSequence'
+      : 'tiqueteSequence'
+  const defaultStart =
+    documentType === DocumentType.FACTURA_ELECTRONICA ? 1000000052 : 0
+
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(counterRef)
-    const current = snap.exists ? snap.data().tiqueteSequence || 0 : 0
+    const data = snap.exists ? snap.data() : {}
+    const current = data[key] ?? defaultStart
     const next = current + 1
-    tx.set(counterRef, { tiqueteSequence: next }, { merge: true })
+    tx.set(counterRef, { [key]: next }, { merge: true })
     return next
   })
 }
 
 // ---------------------------------------------------------------------------
-// Variables de entorno que hay que crear en Vercel (Project Settings ->
-// Environment Variables) para el proyecto chicharronera-los-pirchas:
+// Variables de entorno en Vercel (Project Settings -> Environment Variables):
 //
-//   HACIENDA_CEDULA            - cédula jurídica de Los Pirchas (sin guiones)
-//   HACIENDA_PASSWORD          - contraseña de tu usuario de TRIBU-CR
-//   HACIENDA_P12_BASE64        - tu llave .p12 codificada en base64 (ver nota)
-//   HACIENDA_P12_PIN           - PIN de 4 dígitos de esa llave
-//   HACIENDA_ENVIRONMENT       - "sandbox" mientras probamos, "production" cuando ya esté listo
-//   FACTURACION_EMAIL          - correo que aparece como emisor en el comprobante
-//   FIREBASE_SERVICE_ACCOUNT_JSON - credenciales de servicio de Firebase (JSON completo, como string)
-//
-// Ninguno de estos valores va en el código ni se sube al repo.
+//   HACIENDA_CEDULA, HACIENDA_PASSWORD, HACIENDA_P12_BASE64, HACIENDA_P12_PIN,
+//   HACIENDA_ENVIRONMENT, FACTURACION_EMAIL, FIREBASE_SERVICE_ACCOUNT_JSON
 // ---------------------------------------------------------------------------
