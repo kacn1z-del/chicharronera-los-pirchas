@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { addDoc, collection, onSnapshot, serverTimestamp } from 'firebase/firestore'
-import { db } from '../firebase'
+import { collection, doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore'
+import { db, writeAndContinue } from '../firebase'
 
 const PAYMENT_OPTIONS = [
   { key: 'efectivo', label: 'Efectivo' },
@@ -68,27 +68,30 @@ export default function PhoneOrderPanel({ onCreated, onCancel }) {
     setSaving(true)
     setError(null)
     try {
-      await addDoc(collection(db, 'orders'), {
-        clientName: clientName.trim() || 'Pedido telefónico',
-        clientPhone: clientPhone.trim(),
-        clientAddress: entrega === 'domicilio' ? clientAddress.trim() : null,
-        restaurantName: 'Los Pirchas',
-        origen: 'telefono',
-        tipo: entrega === 'domicilio' ? 'express' : 'llevar',
-        items: cart,
-        total,
-        paymentMethod,
-        notes: notes.trim() || null,
-        status: 'pending',
-        cierreId: null,
-        createdAt: serverTimestamp(),
-      })
+      const newRef = doc(collection(db, 'orders'))
+      const { queued } = await writeAndContinue(
+        setDoc(newRef, {
+          clientName: clientName.trim() || 'Pedido telefónico',
+          clientPhone: clientPhone.trim(),
+          clientAddress: entrega === 'domicilio' ? clientAddress.trim() : null,
+          restaurantName: 'Los Pirchas',
+          origen: 'telefono',
+          tipo: entrega === 'domicilio' ? 'express' : 'llevar',
+          items: cart,
+          total,
+          paymentMethod,
+          notes: notes.trim() || null,
+          status: 'pending',
+          cierreId: null,
+          createdAt: serverTimestamp(),
+        })
+      )
       setCart([])
       setClientName('')
       setClientPhone('')
       setClientAddress('')
       setNotes('')
-      onCreated?.()
+      onCreated?.(queued)
     } catch (err) {
       setError(err.message)
     } finally {
