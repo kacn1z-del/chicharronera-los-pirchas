@@ -246,6 +246,18 @@
   color: var(--char-950);
 }
 
+.section-block__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.section-block__head .section-block__title {
+  margin: 0;
+}
+
 .panel {
   background: var(--glass-strong);
   border: 1px solid var(--glass-border);
@@ -279,11 +291,12 @@
 .orders-table col.col-cliente { width: 14%; }
 .orders-table col.col-mesa { width: 6%; }
 .orders-table col.col-restaurante { width: 10%; }
-.orders-table col.col-pedido { width: 22%; }
+.orders-table col.col-pedido { width: 18%; }
 .orders-table col.col-estado { width: 10%; }
+.orders-table col.col-canal { width: 8%; }
 .orders-table col.col-hora { width: 8%; }
-.orders-table col.col-contacto { width: 12%; }
-.orders-table col.col-acciones { width: 18%; }
+.orders-table col.col-contacto { width: 10%; }
+.orders-table col.col-acciones { width: 16%; }
 
 .orders-table th {
   text-align: left;
@@ -1032,4 +1045,166 @@
   border-radius: var(--radius-sm);
   font-size: 13px;
   margin: -6px 0 0;
+}
+
+/* Cierre de caja */
+.cash-closing {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.cash-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.cash-summary-grid--payment {
+  margin-top: -4px;
+}
+
+.cash-summary-card {
+  background: rgba(63, 152, 104, 0.1);
+  border: 1px solid rgba(63, 152, 104, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cash-summary-card--muted {
+  background: rgba(111, 138, 124, 0.1);
+  border-color: rgba(111, 138, 124, 0.22);
+}
+
+.cash-summary-card__label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-600);
+}
+
+.cash-summary-card__value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--char-950);
+  font-family: var(--font-mono);
+}
+
+.cash-closing-table {
+  margin-bottom: 16px;
+}
+
+.cash-history {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cash-history__item {
+  border: 1px solid rgba(16, 36, 27, 0.1);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.cash-history__row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 16px;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.5);
+  border: none;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cash-history__detail {
+  padding: 0 16px 16px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Panel de pedido telefónico */
+.phone-order-panel__grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 20px;
+}
+
+.phone-order-panel__menu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.phone-order-panel__items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.phone-order-panel__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid rgba(16, 36, 27, 0.12);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.phone-order-panel__item:active {
+  transform: scale(0.98);
+}
+
+.phone-order-panel__cart-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.phone-order-panel__cart-list li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.phone-order-panel__total {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: 16px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(16, 36, 27, 0.12);
+  border-bottom: 1px solid rgba(16, 36, 27, 0.12);
+  margin-bottom: 14px;
+}
+
+@media (max-width: 860px) {
+  .phone-order-panel__grid {
+    grid-template-columns: 1fr;
+  }
+  .cash-history__row {
+    grid-template-columns: 1fr auto;
+    row-gap: 4px;
+  }
 }
