@@ -108,10 +108,14 @@ async function getDocument(client, path) {
     const res = await client.request({ url: `${FIRESTORE_BASE}/${path}` })
     return fromFirestoreFields(res.data.fields || {})
   } catch (err) {
-    if (err.response && err.response.status === 404) return null
+    const status = err.response?.status
+    const body = err.response?.data
+    console.error(`getDocument(${path}) fallo — status: ${status}`, JSON.stringify(body))
+    if (status === 404) return null
     throw err
   }
 }
+
 
 async function patchDocument(client, path, partialFields) {
   const fieldPaths = Object.keys(partialFields)
