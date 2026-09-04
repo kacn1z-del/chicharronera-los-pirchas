@@ -14,7 +14,7 @@
   "dependencies": {
     "@dojocoding/hacienda-sdk": "latest",
     "firebase": "^10.14.1",
-    "firebase-admin": "^12.6.0",
+    "firebase-admin": "latest",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
