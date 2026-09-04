@@ -3,14 +3,14 @@
 // Función serverless de Vercel. Se dispara desde el panel admin cuando cerrás
 // una mesa y querés emitir el comprobante electrónico ante Hacienda.
 //
-// Emisor: Jaffet Calderón Carvajal, cédula física, RTS.
-// Emite Factura Electrónica (01) si el pedido trae cédula del cliente,
-// o Tiquete Electrónico (04) si no. Misma sucursal/terminal (001/00001)
-// que el sistema gratuito de Hacienda que usaba antes, continuando su
-// numeración de Facturas desde 1000000053 (última emitida: 1000000052).
+// Usa la API REST de Firestore directamente (no firebase-admin) porque el
+// proyecto usa una base de datos con ID personalizado "default" (sin
+// paréntesis) — distinto del especial "(default)" que usan las librerías
+// por defecto si no se les indica lo contrario.
+//
+// POST /api/facturar   body: { "orderId": "..." }
 
-import { initializeApp, getApps, cert } from 'firebase-admin/app'
-import { getFirestore } from 'firebase-admin/firestore'
+import { JWT } from 'google-auth-library'
 import {
   HaciendaClient,
   HttpClient,
@@ -20,23 +20,108 @@ import {
 } from '@dojocoding/hacienda-sdk'
 import { buildComprobanteFromOrder } from '../lib/build-tiquete.js'
 
-if (!getApps().length) {
-  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)
-  initializeApp({ credential: cert(serviceAccount) })
-}
-const db = getFirestore()
-db.settings({ preferRest: true })
+const PROJECT_ID = 'acosta-food'
+const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/default/documents`
 
 const EMISOR = {
-  cedula: process.env.HACIENDA_CEDULA, // "113430120" — cédula física de Jaffet Calderón Carvajal
+  cedula: process.env.HACIENDA_CEDULA,
   nombreComercial: 'Los Pirchas',
   correoElectronico: process.env.FACTURACION_EMAIL,
   ubicacion: {
-    provincia: '1', // San José
-    canton: '12', // Acosta
-    distrito: '01', // San Ignacio
+    provincia: '1',
+    canton: '12',
+    distrito: '01',
     otrasSenas: 'Barrio María Auxiliadora, diagonal a la panadería Don Tino, edificio nuevo',
   },
+}
+
+let authClient = null
+function getAuthClient() {
+  if (!authClient) {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)
+    authClient = new JWT({
+      email: serviceAccount.client_email,
+      key: serviceAccount.private_key,
+      scopes: ['https://www.googleapis.com/auth/datastore'],
+    })
+  }
+  return authClient
+}
+
+// --- Conversión entre valores planos de JS y el formato tipado de Firestore REST ---
+
+function fromFirestoreValue(value) {
+  if (value == null) return null
+  if ('stringValue' in value) return value.stringValue
+  if ('integerValue' in value) return Number(value.integerValue)
+  if ('doubleValue' in value) return value.doubleValue
+  if ('booleanValue' in value) return value.booleanValue
+  if ('nullValue' in value) return null
+  if ('timestampValue' in value) return value.timestampValue
+  if ('mapValue' in value) return fromFirestoreFields(value.mapValue.fields || {})
+  if ('arrayValue' in value) return (value.arrayValue.values || []).map(fromFirestoreValue)
+  return null
+}
+
+function fromFirestoreFields(fields) {
+  const out = {}
+  for (const key of Object.keys(fields || {})) {
+    out[key] = fromFirestoreValue(fields[key])
+  }
+  return out
+}
+
+function toFirestoreValue(value) {
+  if (value === null || value === undefined) return { nullValue: null }
+  if (typeof value === 'string') return { stringValue: value }
+  if (typeof value === 'boolean') return { booleanValue: value }
+  if (typeof value === 'number') {
+    return Number.isInteger(value) ? { integerValue: String(value) } : { doubleValue: value }
+  }
+  if (Array.isArray(value)) {
+    return { arrayValue: { values: value.map(toFirestoreValue) } }
+  }
+  if (typeof value === 'object') {
+    const fields = {}
+    for (const key of Object.keys(value)) {
+      fields[key] = toFirestoreValue(value[key])
+    }
+    return { mapValue: { fields } }
+  }
+  return { nullValue: null }
+}
+
+function toFirestoreFields(obj) {
+  const fields = {}
+  for (const key of Object.keys(obj)) {
+    fields[key] = toFirestoreValue(obj[key])
+  }
+  return fields
+}
+
+// --- Operaciones de Firestore vía REST ---
+
+async function getDocument(client, path) {
+  try {
+    const res = await client.request({ url: `${FIRESTORE_BASE}/${path}` })
+    return fromFirestoreFields(res.data.fields || {})
+  } catch (err) {
+    const status = err.response?.status
+    const body = err.response?.data
+    console.error(`getDocument(${path}) fallo — status: ${status}`, JSON.stringify(body))
+    if (status === 404) return null
+    throw err
+  }
+}
+
+async function patchDocument(client, path, partialFields) {
+  const fieldPaths = Object.keys(partialFields)
+  const mask = fieldPaths.map((f) => `updateMask.fieldPaths=${encodeURIComponent(f)}`).join('&')
+  await client.request({
+    url: `${FIRESTORE_BASE}/${path}?${mask}`,
+    method: 'PATCH',
+    data: { fields: toFirestoreFields(partialFields) },
+  })
 }
 
 export default async function handler(req, res) {
@@ -51,30 +136,39 @@ export default async function handler(req, res) {
   }
 
   try {
-    const orderRef = db.collection('orders').doc(orderId)
-    const orderSnap = await orderRef.get()
-    if (!orderSnap.exists) {
+    const client = getAuthClient()
+
+    // 1. Leer el pedido
+    const order = await getDocument(client, `orders/${orderId}`)
+    if (!order) {
       return res.status(404).json({ error: 'Pedido no encontrado' })
     }
-    const order = orderSnap.data()
 
     if (order.facturaEstado === 'aceptado') {
       return res.status(409).json({ error: 'Este pedido ya fue facturado' })
     }
 
+    // 2. Consecutivo (lectura + escritura simple; volumen bajo, sin necesidad
+    // de transacción atómica de Firestore).
     const esFactura = Boolean(order.clientCedula)
     const documentType = esFactura
       ? DocumentType.FACTURA_ELECTRONICA
       : DocumentType.TIQUETE_ELECTRONICO
+    const key = esFactura ? 'facturaSequence' : 'tiqueteSequence'
+    const defaultStart = esFactura ? 1000000052 : 0
 
-    const sequence = await getNextSequence(documentType)
+    const meta = (await getDocument(client, '_meta/facturacion')) || {}
+    const sequence = (meta[key] ?? defaultStart) + 1
+    await patchDocument(client, '_meta/facturacion', { [key]: sequence })
 
+    // 3. Armar el XML del comprobante
     const { xml, clave, numeroConsecutivo } = buildComprobanteFromOrder(
       order,
       EMISOR,
       sequence,
     )
 
+    // 4. Firmar con la llave criptográfica (.p12 en base64 -> buffer)
     const p12Buffer = Buffer.from(process.env.HACIENDA_P12_BASE64, 'base64')
     const xmlFirmadoBase64 = await signAndEncode(
       xml,
@@ -82,16 +176,17 @@ export default async function handler(req, res) {
       process.env.HACIENDA_P12_PIN,
     )
 
+    // 5. Autenticarse contra Hacienda y enviar
     const environment = process.env.HACIENDA_ENVIRONMENT || 'sandbox'
-    const client = new HaciendaClient({
+    const haciendaClient = new HaciendaClient({
       environment,
       credentials: {
-        idType: '01', // física
-        idNumber: EMISOR.cedula,
+        idType: '01',
+        idNumber: process.env.HACIENDA_AUTH_USER || EMISOR.cedula,
         password: process.env.HACIENDA_PASSWORD,
       },
     })
-    await client.authenticate()
+    await haciendaClient.authenticate()
 
     const baseUrl =
       environment === 'production'
@@ -100,7 +195,7 @@ export default async function handler(req, res) {
 
     const httpClient = new HttpClient({
       baseUrl,
-      getToken: () => client.getAccessToken(),
+      getToken: () => haciendaClient.getAccessToken(),
     })
 
     const resultado = await submitAndWait(
@@ -117,14 +212,13 @@ export default async function handler(req, res) {
       { pollIntervalMs: 3000, timeoutMs: 60000 },
     )
 
-    await orderRef.update({
+    // 6. Guardar el resultado en el pedido
+    await patchDocument(client, `orders/${orderId}`, {
       facturaClave: clave,
       facturaConsecutivo: numeroConsecutivo,
       facturaTipo: esFactura ? 'factura' : 'tiquete',
       facturaEstado: resultado.accepted ? 'aceptado' : 'rechazado',
-      facturaRechazoMotivo: resultado.accepted
-        ? null
-        : resultado.rejectionReason || null,
+      facturaRechazoMotivo: resultado.accepted ? null : resultado.rejectionReason || null,
       facturaFecha: new Date().toISOString(),
     })
 
@@ -141,23 +235,4 @@ export default async function handler(req, res) {
     console.error('Error facturando:', err)
     return res.status(500).json({ error: err.message })
   }
-}
-
-async function getNextSequence(documentType) {
-  const counterRef = db.collection('_meta').doc('facturacion')
-  const key =
-    documentType === DocumentType.FACTURA_ELECTRONICA
-      ? 'facturaSequence'
-      : 'tiqueteSequence'
-  const defaultStart =
-    documentType === DocumentType.FACTURA_ELECTRONICA ? 1000000052 : 0
-
-  return db.runTransaction(async (tx) => {
-    const snap = await tx.get(counterRef)
-    const data = snap.exists ? snap.data() : {}
-    const current = data[key] ?? defaultStart
-    const next = current + 1
-    tx.set(counterRef, { [key]: next }, { merge: true })
-    return next
-  })
 }
