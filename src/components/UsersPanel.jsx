@@ -54,9 +54,9 @@ export default function UsersPanel() {
         <tbody>
           {users.map((u) => (
             <tr key={u.id}>
-              <td>{u.nombre || u.name || '—'}</td>
-              <td className="mono">{u.telefono || u.phone || '—'}</td>
-              <td>{u.email || '—'}</td>
+              <td data-label="Nombre">{u.nombre || u.name || '—'}</td>
+              <td data-label="Teléfono" className="mono">{u.telefono || u.phone || '—'}</td>
+              <td data-label="Correo">{u.email || '—'}</td>
             </tr>
           ))}
         </tbody>
