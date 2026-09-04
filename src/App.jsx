@@ -31,8 +31,25 @@ function useCollectionCount(name) {
 
 export default function App() {
   const [section, setSection] = useState('resumen')
-  const [connected, setConnected] = useState(true)
+  const [firestoreConnected, setFirestoreConnected] = useState(true)
+  const [browserOnline, setBrowserOnline] = useState(navigator.onLine)
   const [showPhoneOrder, setShowPhoneOrder] = useState(false)
+
+  useEffect(() => {
+    const goOnline = () => setBrowserOnline(true)
+    const goOffline = () => setBrowserOnline(false)
+    window.addEventListener('online', goOnline)
+    window.addEventListener('offline', goOffline)
+    return () => {
+      window.removeEventListener('online', goOnline)
+      window.removeEventListener('offline', goOffline)
+    }
+  }, [])
+
+  // "Conectado" solo si el navegador tiene señal Y Firestore confirma que
+  // está recibiendo datos en vivo — cualquiera de los dos fallando cuenta
+  // como sin conexión.
+  const connected = browserOnline && firestoreConnected
 
   const ordersCount = useCollectionCount('orders')
   const restaurantsCount = useCollectionCount('restaurants')
@@ -73,7 +90,7 @@ export default function App() {
 
               <section className="section-block">
                 <h2 className="section-block__title">Pedidos recientes</h2>
-                <OrdersTable onConnectionChange={setConnected} />
+                <OrdersTable onConnectionChange={setFirestoreConnected} />
               </section>
             </>
           )}
@@ -99,7 +116,7 @@ export default function App() {
                   onCancel={() => setShowPhoneOrder(false)}
                 />
               )}
-              <OrdersTable onConnectionChange={setConnected} />
+              <OrdersTable onConnectionChange={setFirestoreConnected} />
             </section>
           )}
 
