@@ -185,10 +185,10 @@ export default function MenuEditor() {
                 </tr>
               ) : (
                 <tr key={item.id}>
-                  <td>{item.nombre}</td>
-                  <td>{item.categoria}</td>
-                  <td className="mono">{formatColones(item.precio)}</td>
-                  <td>
+                  <td data-label="Plato">{item.nombre}</td>
+                  <td data-label="Categoría">{item.categoria}</td>
+                  <td data-label="Precio" className="mono">{formatColones(item.precio)}</td>
+                  <td data-label="Estado">
                     <button
                       className={`badge ${item.disponible !== false ? 'badge--green' : 'badge--gray'}`}
                       onClick={() => toggleDisponible(item)}
@@ -197,7 +197,7 @@ export default function MenuEditor() {
                       {item.disponible !== false ? 'Disponible' : 'Agotado'}
                     </button>
                   </td>
-                  <td>
+                  <td data-label="Acciones">
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button className="btn-secondary" onClick={() => startEdit(item)}>
                         Editar
