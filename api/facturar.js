@@ -178,15 +178,22 @@ export default async function handler(req, res) {
 
     // 5. Autenticarse contra Hacienda y enviar
     const environment = process.env.HACIENDA_ENVIRONMENT || 'sandbox'
+    const idNumberUsado = process.env.HACIENDA_AUTH_USER || EMISOR.cedula
     const haciendaClient = new HaciendaClient({
       environment,
       credentials: {
         idType: '01',
-        idNumber: process.env.HACIENDA_AUTH_USER || EMISOR.cedula,
+        idNumber: idNumberUsado,
         password: process.env.HACIENDA_PASSWORD,
       },
     })
-    await haciendaClient.authenticate()
+    try {
+      await haciendaClient.authenticate()
+    } catch (authErr) {
+      throw new Error(
+        `DIAG auth falló. idNumber="${idNumberUsado}" (${idNumberUsado.length} caracteres) — ${authErr.message}`
+      )
+    }
 
     const baseUrl =
       environment === 'production'
