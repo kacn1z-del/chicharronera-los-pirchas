@@ -7,6 +7,7 @@ const TITLES = {
   usuarios: ['Usuarios', 'Clientes registrados en Los Pirchas'],
   menu: ['Menú', 'Importar y administrar los platos del menú'],
   inventario: ['Inventario', 'Existencias de productos e insumos'],
+  equipo: ['Equipo', 'Usuarios del panel y sus permisos'],
 }
 
 export default function TopBar({ section, connected }) {
