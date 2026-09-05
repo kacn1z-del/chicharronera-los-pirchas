@@ -1208,3 +1208,110 @@
     row-gap: 4px;
   }
 }
+
+/* Pantalla de login */
+.login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--char-950);
+  padding: 20px;
+}
+
+.login-screen__card {
+  width: 100%;
+  max-width: 340px;
+  background: var(--paper);
+  border-radius: var(--radius-lg);
+  padding: 32px 26px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+}
+
+.login-screen__title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  margin: 0 0 2px;
+}
+
+.login-screen__subtitle {
+  color: var(--ink-600);
+  font-size: 13px;
+  margin: 0 0 22px;
+}
+
+.login-screen__form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.login-screen__form label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-600);
+}
+
+.login-screen__form input {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(16, 36, 27, 0.16);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 15px;
+  color: var(--ink-900);
+}
+
+.login-screen__error {
+  color: var(--red-500);
+  font-size: 13px;
+  margin: 0;
+}
+
+/* Franja de "modo solo lectura" para usuarios invitados */
+.readonly-banner {
+  background: rgba(201, 47, 28, 0.08);
+  border: 1px solid rgba(201, 47, 28, 0.25);
+  color: var(--ink-600);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 12.5px;
+  margin-bottom: 14px;
+}
+
+/* Panel de usuarios del equipo (solo admin) */
+.staff-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 18px;
+}
+
+.staff-form label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-600);
+}
+
+.staff-form input,
+.staff-form select {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(16, 36, 27, 0.16);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+@media (max-width: 860px) {
+  .staff-form {
+    grid-template-columns: 1fr;
+  }
+}
+
