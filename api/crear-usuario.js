@@ -75,8 +75,9 @@ async function getDocument(client, path) {
     const res = await client.request({ url: `${FIRESTORE_BASE}/${path}` })
     return fromFirestoreFields(res.data.fields || {})
   } catch (err) {
-    if (err.response?.status === 404) return null
-    throw err
+    throw new Error(
+      `DIAG getDocument(${path}) status=${err.response?.status} body=${JSON.stringify(err.response?.data)}`
+    )
   }
 }
 
