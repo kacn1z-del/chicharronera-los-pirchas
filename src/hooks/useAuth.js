@@ -15,6 +15,7 @@ export function useAuth() {
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, (firebaseUser) => {
+      alert('DIAG onAuthStateChanged: ' + (firebaseUser ? firebaseUser.uid : 'null'))
       setUser(firebaseUser)
       if (!firebaseUser) {
         setRole(null)
@@ -30,11 +31,13 @@ export function useAuth() {
     const unsubStaff = onSnapshot(
       doc(db, 'staff', user.uid),
       (snap) => {
+        alert('DIAG staff OK. existe=' + snap.exists() + ' datos=' + JSON.stringify(snap.data()))
         setRole(snap.exists() ? snap.data().rol : null)
         setNombre(snap.exists() ? snap.data().nombre : null)
         setLoading(false)
       },
-      () => {
+      (err) => {
+        alert('DIAG staff ERROR: ' + err.code + ' — ' + err.message)
         setRole(null)
         setLoading(false)
       }
