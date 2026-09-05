@@ -1283,6 +1283,10 @@
 }
 
 /* Panel de usuarios del equipo (solo admin) */
+.staff-panel {
+  padding: 20px 22px;
+}
+
 .staff-form {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr auto;
