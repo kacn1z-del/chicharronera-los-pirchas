@@ -13,9 +13,9 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
 
 const PROJECT_ID = 'acosta-food'
-// OJO: el ID real de la base de datos por defecto en Firestore es "(default)",
-// con paréntesis incluidos — no "default" a secas.
-const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`
+// El proyecto usa una base de datos con ID personalizado "default" (sin
+// paréntesis) — no la especial reservada "(default)" que usan otros proyectos.
+const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/default/documents`
 
 if (!getApps().length) {
   const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)
