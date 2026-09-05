@@ -3,10 +3,8 @@
 // Función serverless de Vercel. Se dispara desde el panel admin cuando cerrás
 // una mesa y querés emitir el comprobante electrónico ante Hacienda.
 //
-// Usa la API REST de Firestore directamente (no firebase-admin) porque el
-// proyecto usa una base de datos con ID personalizado "default" (sin
-// paréntesis) — distinto del especial "(default)" que usan las librerías
-// por defecto si no se les indica lo contrario.
+// Usa la API REST de Firestore directamente (no firebase-admin) por
+// simplicidad en el entorno serverless de Vercel.
 //
 // POST /api/facturar   body: { "orderId": "..." }
 
@@ -21,7 +19,9 @@ import {
 import { buildComprobanteFromOrder } from '../lib/build-tiquete.js'
 
 const PROJECT_ID = 'acosta-food'
-const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/default/documents`
+// OJO: el ID real de la base de datos por defecto en Firestore es "(default)",
+// con paréntesis incluidos — no "default" a secas.
+const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`
 
 const EMISOR = {
   cedula: process.env.HACIENDA_CEDULA,
