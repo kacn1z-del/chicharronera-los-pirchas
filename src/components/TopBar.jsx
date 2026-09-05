@@ -10,7 +10,7 @@ const TITLES = {
   equipo: ['Equipo', 'Usuarios del panel y sus permisos'],
 }
 
-export default function TopBar({ section, connected }) {
+export default function TopBar({ section, connected, nombre, onLogout }) {
   const [title, subtitle] = TITLES[section] ?? TITLES.resumen
 
   return (
@@ -19,9 +19,16 @@ export default function TopBar({ section, connected }) {
         <h1 className="topbar__title">{title}</h1>
         <p className="topbar__subtitle">{subtitle}</p>
       </div>
-      <div className={`topbar__status ${connected ? 'is-live' : 'is-offline'}`}>
-        <span className="topbar__dot" aria-hidden="true" />
-        {connected ? 'Conectado en vivo' : 'Sin conexión con Firestore'}
+      <div className="topbar__right">
+        <div className={`topbar__status ${connected ? 'is-live' : 'is-offline'}`}>
+          <span className="topbar__dot" aria-hidden="true" />
+          {connected ? 'Conectado en vivo' : 'Sin conexión con Firestore'}
+        </div>
+        {nombre && (
+          <button type="button" className="topbar__logout" onClick={onLogout}>
+            {nombre} · Salir
+          </button>
+        )}
       </div>
     </header>
   )
