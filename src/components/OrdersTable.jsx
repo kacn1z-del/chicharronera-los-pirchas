@@ -120,7 +120,7 @@ function printReceipt(order) {
   printWindow.document.close()
 }
 
-export default function OrdersTable({ onConnectionChange }) {
+export default function OrdersTable({ onConnectionChange, isAdmin }) {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -167,6 +167,27 @@ export default function OrdersTable({ onConnectionChange }) {
     } catch (err) {
       console.error(err)
       alert('No se pudo eliminar el pedido: ' + err.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  // Los usuarios invitados no pueden borrar pedidos — en cambio, dejan una
+  // nota explicando por qué se debería eliminar, para que un admin lo revise
+  // y lo elimine de verdad si corresponde.
+  const requestDeletion = async (order) => {
+    const nota = window.prompt('¿Por qué se debería eliminar este pedido? (esto le llega al administrador)')
+    if (nota === null || !nota.trim()) return
+    setBusyId(order.id)
+    try {
+      await writeAndContinue(
+        updateDoc(doc(db, 'orders', order.id), {
+          solicitudEliminacion: { nota: nota.trim(), fecha: new Date().toISOString() },
+        })
+      )
+    } catch (err) {
+      console.error(err)
+      alert('No se pudo guardar la nota: ' + err.message)
     } finally {
       setBusyId(null)
     }
@@ -274,6 +295,11 @@ export default function OrdersTable({ onConnectionChange }) {
                       <span className="badge badge--gray">En caja cerrada</span>
                     </div>
                   )}
+                  {order.solicitudEliminacion && (
+                    <div className="order-sub" title={order.solicitudEliminacion.nota}>
+                      <span className="badge badge--red">Piden eliminar</span>
+                    </div>
+                  )}
                 </td>
                 <td data-label="Canal">
                   <span className={`badge badge--${origen.tone}`}>{origen.label}</span>
@@ -341,14 +367,25 @@ export default function OrdersTable({ onConnectionChange }) {
                     >
                       🖨️ Imprimir
                     </button>
-                    <button
-                      type="button"
-                      className="action-btn action-btn--red"
-                      disabled={busyId === order.id}
-                      onClick={() => removeOrder(order)}
-                    >
-                      Eliminar
-                    </button>
+                    {isAdmin ? (
+                      <button
+                        type="button"
+                        className="action-btn action-btn--red"
+                        disabled={busyId === order.id}
+                        onClick={() => removeOrder(order)}
+                      >
+                        Eliminar
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="action-btn action-btn--red"
+                        disabled={busyId === order.id || !!order.solicitudEliminacion}
+                        onClick={() => requestDeletion(order)}
+                      >
+                        {order.solicitudEliminacion ? 'Ya avisaste' : 'Anular con nota'}
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
