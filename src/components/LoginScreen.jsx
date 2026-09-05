@@ -25,7 +25,8 @@ export default function LoginScreen() {
     try {
       await signInWithEmailAndPassword(auth, toStaffEmail(usuario), password)
     } catch (err) {
-      setError('Usuario o contraseña incorrectos.')
+      console.error('Error de login:', err.code, err.message)
+      setError(`No se pudo entrar (${err.code || 'error desconocido'}). Detalle: ${err.message}`)
     } finally {
       setLoading(false)
     }
