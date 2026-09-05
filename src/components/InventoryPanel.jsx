@@ -9,7 +9,7 @@ function emptyDraft() {
   return { nombre: '', categoria: '', cantidad: '', unidad: 'unidades', minimo: '', notas: '' }
 }
 
-export default function InventoryPanel() {
+export default function InventoryPanel({ isAdmin = false }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -194,23 +194,27 @@ export default function InventoryPanel() {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
-        <button
-          className="btn-secondary"
-          onClick={handleImportSeed}
-          disabled={importStatus === 'importing'}
-        >
-          {importStatus === 'importing' ? 'Importando…' : `Importar lista inicial (${INVENTARIO_SEED.length})`}
-        </button>
-        <button className="btn-primary" onClick={startAdd}>
-          + Agregar producto
-        </button>
+        {isAdmin && (
+          <button
+            className="btn-secondary"
+            onClick={handleImportSeed}
+            disabled={importStatus === 'importing'}
+          >
+            {importStatus === 'importing' ? 'Importando…' : `Importar lista inicial (${INVENTARIO_SEED.length})`}
+          </button>
+        )}
+        {isAdmin && (
+          <button className="btn-primary" onClick={startAdd}>
+            + Agregar producto
+          </button>
+        )}
       </div>
 
       {importMessage && (
         <p className={importStatus === 'error' ? 'form-error' : 'panel-hint'}>{importMessage}</p>
       )}
 
-      {adding && (
+      {isAdmin && adding && (
         <InventoryForm
           draft={draft}
           setDraft={setDraft}
@@ -242,7 +246,7 @@ export default function InventoryPanel() {
           <tbody>
             {sorted.map((item) => {
               const bajo = item.minimo != null && Number(item.cantidad || 0) <= Number(item.minimo)
-              return editingId === item.id ? (
+              return isAdmin && editingId === item.id ? (
                 <tr key={item.id}>
                   <td colSpan={5} data-label="">
                     <InventoryForm
@@ -263,47 +267,55 @@ export default function InventoryPanel() {
                   </td>
                   <td data-label="Categoría">{item.categoria || '—'}</td>
                   <td data-label="Stock">
-                    <div className="stock-ctrl">
-                      <button
-                        type="button"
-                        className="action-btn"
-                        disabled={busyId === item.id}
-                        onClick={() => adjustStock(item, -1)}
-                      >
-                        −
-                      </button>
+                    {isAdmin ? (
+                      <div className="stock-ctrl">
+                        <button
+                          type="button"
+                          className="action-btn"
+                          disabled={busyId === item.id}
+                          onClick={() => adjustStock(item, -1)}
+                        >
+                          −
+                        </button>
+                        <span className="mono">
+                          {item.cantidad ?? 0} {item.unidad}
+                        </span>
+                        <button
+                          type="button"
+                          className="action-btn"
+                          disabled={busyId === item.id}
+                          onClick={() => adjustStock(item, 1)}
+                        >
+                          +
+                        </button>
+                      </div>
+                    ) : (
                       <span className="mono">
                         {item.cantidad ?? 0} {item.unidad}
                       </span>
-                      <button
-                        type="button"
-                        className="action-btn"
-                        disabled={busyId === item.id}
-                        onClick={() => adjustStock(item, 1)}
-                      >
-                        +
-                      </button>
-                    </div>
+                    )}
                   </td>
                   <td data-label="Estado">
                     <span className={`badge ${bajo ? 'badge--red' : 'badge--green'}`}>
                       {bajo ? 'Stock bajo' : 'OK'}
                     </span>
                   </td>
-                  <td data-label="Acciones">
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      <button className="btn-secondary" onClick={() => startEdit(item)}>
-                        Editar
-                      </button>
-                      <button
-                        className="btn-secondary"
-                        disabled={busyId === item.id}
-                        onClick={() => handleDelete(item)}
-                      >
-                        Quitar
-                      </button>
-                    </div>
-                  </td>
+                  {isAdmin && (
+                    <td data-label="Acciones">
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <button className="btn-secondary" onClick={() => startEdit(item)}>
+                          Editar
+                        </button>
+                        <button
+                          className="btn-secondary"
+                          disabled={busyId === item.id}
+                          onClick={() => handleDelete(item)}
+                        >
+                          Quitar
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               )
             })}
