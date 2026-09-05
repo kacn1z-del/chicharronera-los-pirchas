@@ -10,7 +10,11 @@ const NAV_ITEMS = [
   { id: 'inventario', label: 'Inventario', icon: '📦' },
 ]
 
-export default function Sidebar({ active, onNavigate }) {
+const ADMIN_ONLY_NAV_ITEM = { id: 'equipo', label: 'Equipo', icon: '🔑' }
+
+export default function Sidebar({ active, onNavigate, isAdmin, nombre, onLogout }) {
+  const items = isAdmin ? [...NAV_ITEMS, ADMIN_ONLY_NAV_ITEM] : NAV_ITEMS
+
   return (
     <aside className="sidebar">
       <div className="sidebar__brand">
@@ -22,7 +26,7 @@ export default function Sidebar({ active, onNavigate }) {
       </div>
 
       <nav className="sidebar__nav">
-        {NAV_ITEMS.map((item) => (
+        {items.map((item) => (
           <button
             key={item.id}
             className={`sidebar__link ${active === item.id ? 'is-active' : ''}`}
@@ -38,8 +42,15 @@ export default function Sidebar({ active, onNavigate }) {
       </nav>
 
       <div className="sidebar__footer">
-        <p>Conectado a</p>
-        <p className="mono sidebar__project">acosta-food (Los Pirchas)</p>
+        {nombre && (
+          <>
+            <p>Conectado como</p>
+            <p className="mono sidebar__project">{nombre}</p>
+            <button className="btn-secondary" style={{ marginTop: '8px' }} onClick={onLogout}>
+              Cerrar sesión
+            </button>
+          </>
+        )}
       </div>
     </aside>
   )
