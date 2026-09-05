@@ -60,15 +60,26 @@ export default function StaffPanel() {
   }
 
   return (
-    <div className="panel">
+    <div className="panel staff-panel">
       <form className="staff-form" onSubmit={handleCreate}>
         <label>
           Usuario
-          <input value={usuario} onChange={(e) => setUsuario(e.target.value)} placeholder="roselle" />
+          <input
+            value={usuario}
+            onChange={(e) => setUsuario(e.target.value)}
+            placeholder="roselle"
+            autoComplete="off"
+            autoCapitalize="none"
+          />
         </label>
         <label>
           Nombre
-          <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Roselle" />
+          <input
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            placeholder="Roselle"
+            autoComplete="off"
+          />
         </label>
         <label>
           Contraseña
@@ -77,6 +88,11 @@ export default function StaffPanel() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="mínimo 6 caracteres"
+            autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
+            name="staff-password-field"
+            data-lpignore="true"
           />
         </label>
         <label>
