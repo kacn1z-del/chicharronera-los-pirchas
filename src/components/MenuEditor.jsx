@@ -11,7 +11,7 @@ function emptyDraft() {
   return { nombre: '', categoria: '', precio: '', descripcion: '', imagenUrl: '', disponible: true }
 }
 
-export default function MenuEditor() {
+export default function MenuEditor({ isAdmin = false }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -141,12 +141,14 @@ export default function MenuEditor() {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
-        <button className="btn-primary" onClick={startAdd}>
-          + Agregar plato
-        </button>
+        {isAdmin && (
+          <button className="btn-primary" onClick={startAdd}>
+            + Agregar plato
+          </button>
+        )}
       </div>
 
-      {adding && (
+      {isAdmin && adding && (
         <DishForm
           draft={draft}
           setDraft={setDraft}
@@ -170,7 +172,7 @@ export default function MenuEditor() {
           </thead>
           <tbody>
             {sorted.map((item) =>
-              editingId === item.id ? (
+              isAdmin && editingId === item.id ? (
                 <tr key={item.id}>
                   <td colSpan={5}>
                     <DishForm
@@ -189,24 +191,32 @@ export default function MenuEditor() {
                   <td data-label="Categoría">{item.categoria}</td>
                   <td data-label="Precio" className="mono">{formatColones(item.precio)}</td>
                   <td data-label="Estado">
-                    <button
-                      className={`badge ${item.disponible !== false ? 'badge--green' : 'badge--gray'}`}
-                      onClick={() => toggleDisponible(item)}
-                      style={{ border: 'none', cursor: 'pointer' }}
-                    >
-                      {item.disponible !== false ? 'Disponible' : 'Agotado'}
-                    </button>
-                  </td>
-                  <td data-label="Acciones">
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button className="btn-secondary" onClick={() => startEdit(item)}>
-                        Editar
+                    {isAdmin ? (
+                      <button
+                        className={`badge ${item.disponible !== false ? 'badge--green' : 'badge--gray'}`}
+                        onClick={() => toggleDisponible(item)}
+                        style={{ border: 'none', cursor: 'pointer' }}
+                      >
+                        {item.disponible !== false ? 'Disponible' : 'Agotado'}
                       </button>
-                      <button className="btn-secondary" onClick={() => handleDelete(item.id)}>
-                        Borrar
-                      </button>
-                    </div>
+                    ) : (
+                      <span className={`badge ${item.disponible !== false ? 'badge--green' : 'badge--gray'}`}>
+                        {item.disponible !== false ? 'Disponible' : 'Agotado'}
+                      </span>
+                    )}
                   </td>
+                  {isAdmin && (
+                    <td data-label="Acciones">
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button className="btn-secondary" onClick={() => startEdit(item)}>
+                          Editar
+                        </button>
+                        <button className="btn-secondary" onClick={() => handleDelete(item.id)}>
+                          Borrar
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               )
             )}
