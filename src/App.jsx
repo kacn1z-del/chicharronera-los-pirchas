@@ -86,7 +86,7 @@ export default function App() {
       />
 
       <div className="app-main">
-        <TopBar section={activeSection} connected={connected} />
+        <TopBar section={activeSection} connected={connected} nombre={nombre} onLogout={logout} />
 
         <main className="app-content">
           {activeSection === 'resumen' && (
