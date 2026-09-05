@@ -12,6 +12,29 @@ function formatColones(value) {
   return `₡${Number(value ?? 0).toLocaleString('es-CR')}`
 }
 
+function normalizeCategory(text) {
+  return (text || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
+// Horarios especiales según el menú físico:
+//   Plato Ejecutivo: lunes a viernes, 11 a.m. a 4 p.m.
+//   Noche de Bocas: lunes a jueves, 5 p.m. a 10 p.m.
+// Cualquier otra categoría no tiene restricción de horario.
+function categoriaEnHorario(categoria) {
+  const cat = normalizeCategory(categoria)
+  const now = new Date()
+  const dia = now.getDay()
+  const minutos = now.getHours() * 60 + now.getMinutes()
+
+  if (cat === normalizeCategory('Plato Ejecutivo')) {
+    return dia >= 1 && dia <= 5 && minutos >= 11 * 60 && minutos < 16 * 60
+  }
+  if (cat === normalizeCategory('Noche de Bocas')) {
+    return dia >= 1 && dia <= 4 && minutos >= 17 * 60 && minutos < 22 * 60
+  }
+  return true
+}
+
 export default function PhoneOrderPanel({ onCreated, onCancel }) {
   const [menuItems, setMenuItems] = useState([])
   const [cart, setCart] = useState([]) // [{ nombre, precio, qty }]
@@ -34,7 +57,9 @@ export default function PhoneOrderPanel({ onCreated, onCancel }) {
 
   const filteredMenu = useMemo(() => {
     const term = search.trim().toLowerCase()
-    const disponibles = menuItems.filter((m) => m.disponible !== false)
+    const disponibles = menuItems.filter(
+      (m) => m.disponible !== false && categoriaEnHorario(m.categoria)
+    )
     if (!term) return disponibles
     return disponibles.filter(
       (m) => m.nombre?.toLowerCase().includes(term) || m.categoria?.toLowerCase().includes(term)
