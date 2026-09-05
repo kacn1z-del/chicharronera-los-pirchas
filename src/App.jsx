@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from './firebase'
+import { useAuth } from './hooks/useAuth'
+import LoginScreen from './components/LoginScreen'
 import Sidebar from './components/Sidebar'
 import TopBar from './components/TopBar'
 import MetricCard from './components/MetricCard'
@@ -14,6 +16,7 @@ import InventoryPanel from './components/InventoryPanel'
 import FloorPlanPanel from './components/FloorPlanPanel'
 import CashClosingPanel from './components/CashClosingPanel'
 import PhoneOrderPanel from './components/PhoneOrderPanel'
+import StaffPanel from './components/StaffPanel'
 import './App.css'
 
 function useCollectionCount(name) {
@@ -30,6 +33,7 @@ function useCollectionCount(name) {
 }
 
 export default function App() {
+  const { user, role, nombre, loading, isAdmin, logout } = useAuth()
   const [section, setSection] = useState('resumen')
   const [firestoreConnected, setFirestoreConnected] = useState(true)
   const [browserOnline, setBrowserOnline] = useState(navigator.onLine)
@@ -55,18 +59,37 @@ export default function App() {
   const restaurantsCount = useCollectionCount('restaurants')
   const usersCount = useCollectionCount('users')
 
+  if (loading) {
+    return <div className="login-screen"><p style={{ color: '#fbf4ea' }}>Cargando…</p></div>
+  }
+
+  if (!user || !role) {
+    return <LoginScreen />
+  }
+
+  // "equipo" es solo para admin — si un invitado quedó parado ahí (por
+  // ejemplo, si perdió el rol de admin mientras lo tenía abierto), lo mandamos
+  // de vuelta al resumen.
+  const activeSection = section === 'equipo' && !isAdmin ? 'resumen' : section
+
   return (
     <div className="app-shell">
       <div className="canopy canopy--one" aria-hidden="true" />
       <div className="canopy canopy--two" aria-hidden="true" />
 
-      <Sidebar active={section} onNavigate={setSection} />
+      <Sidebar
+        active={activeSection}
+        onNavigate={setSection}
+        isAdmin={isAdmin}
+        nombre={nombre}
+        onLogout={logout}
+      />
 
       <div className="app-main">
-        <TopBar section={section} connected={connected} />
+        <TopBar section={activeSection} connected={connected} />
 
         <main className="app-content">
-          {section === 'resumen' && (
+          {activeSection === 'resumen' && (
             <>
               <div className="metrics-grid">
                 <MetricCard
@@ -90,19 +113,19 @@ export default function App() {
 
               <section className="section-block">
                 <h2 className="section-block__title">Pedidos recientes</h2>
-                <OrdersTable onConnectionChange={setFirestoreConnected} />
+                <OrdersTable onConnectionChange={setFirestoreConnected} isAdmin={isAdmin} />
               </section>
             </>
           )}
 
-          {section === 'salon' && (
+          {activeSection === 'salon' && (
             <section className="section-block">
               <h2 className="section-block__title">Distribución del salón</h2>
               <FloorPlanPanel />
             </section>
           )}
 
-          {section === 'pedidos' && (
+          {activeSection === 'pedidos' && (
             <section className="section-block">
               <div className="section-block__head">
                 <h2 className="section-block__title">Todos los pedidos</h2>
@@ -116,51 +139,68 @@ export default function App() {
                   onCancel={() => setShowPhoneOrder(false)}
                 />
               )}
-              <OrdersTable onConnectionChange={setFirestoreConnected} />
+              <OrdersTable onConnectionChange={setFirestoreConnected} isAdmin={isAdmin} />
             </section>
           )}
 
-          {section === 'caja' && (
+          {activeSection === 'caja' && (
             <section className="section-block">
               <h2 className="section-block__title">Cierre de caja</h2>
               <CashClosingPanel />
             </section>
           )}
 
-          {section === 'restaurantes' && (
+          {activeSection === 'restaurantes' && (
             <section className="section-block">
               <h2 className="section-block__title">Restaurantes registrados</h2>
               <RestaurantsPanel />
             </section>
           )}
 
-          {section === 'repartidores' && (
+          {activeSection === 'repartidores' && (
             <section className="section-block">
               <h2 className="section-block__title">Repartidores en línea</h2>
               <RidersPanel />
             </section>
           )}
 
-          {section === 'usuarios' && (
+          {activeSection === 'usuarios' && (
             <section className="section-block">
               <h2 className="section-block__title">Usuarios registrados</h2>
               <UsersPanel />
             </section>
           )}
 
-          {section === 'menu' && (
+          {activeSection === 'menu' && (
             <section className="section-block">
               <h2 className="section-block__title">Administrar menú</h2>
-              <MenuImportPanel />
-              <div style={{ height: '20px' }} />
-              <MenuEditor />
+              {!isAdmin && (
+                <p className="readonly-banner">
+                  Modo solo lectura — pedile a un administrador que haga cambios en el menú.
+                </p>
+              )}
+              {isAdmin && <MenuImportPanel />}
+              {isAdmin && <div style={{ height: '20px' }} />}
+              <MenuEditor isAdmin={isAdmin} />
             </section>
           )}
 
-          {section === 'inventario' && (
+          {activeSection === 'inventario' && (
             <section className="section-block">
               <h2 className="section-block__title">Inventario de productos</h2>
-              <InventoryPanel />
+              {!isAdmin && (
+                <p className="readonly-banner">
+                  Modo solo lectura — pedile a un administrador que haga cambios en el inventario.
+                </p>
+              )}
+              <InventoryPanel isAdmin={isAdmin} />
+            </section>
+          )}
+
+          {activeSection === 'equipo' && isAdmin && (
+            <section className="section-block">
+              <h2 className="section-block__title">Usuarios del equipo</h2>
+              <StaffPanel />
             </section>
           )}
         </main>
