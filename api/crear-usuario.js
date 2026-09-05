@@ -127,7 +127,9 @@ export default async function handler(req, res) {
 
     const callerStaff = await getDocument(firestoreClient, `staff/${decoded.uid}`)
     if (!callerStaff || callerStaff.rol !== 'admin') {
-      return res.status(403).json({ error: 'Solo un administrador puede crear usuarios nuevos' })
+      return res.status(403).json({
+        error: `Solo un administrador puede crear usuarios nuevos [DIAG uid=${decoded.uid} callerStaff=${JSON.stringify(callerStaff)}]`,
+      })
     }
 
     const email = toStaffEmail(usuario)
