@@ -152,6 +152,24 @@
   color: var(--char-950);
 }
 
+.topbar__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.topbar__logout {
+  background: rgba(201, 47, 28, 0.08);
+  border: 1px solid rgba(201, 47, 28, 0.25);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--red-500);
+  white-space: nowrap;
+}
+
 .topbar__subtitle {
   margin-top: 4px;
   font-size: 13px;
