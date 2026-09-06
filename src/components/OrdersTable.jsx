@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore'
+import { collection, deleteDoc, doc, onSnapshot, orderBy, query, updateDoc, writeBatch } from 'firebase/firestore'
 import { db, writeAndContinue } from '../firebase'
 
 const STATUS_LABELS = {
@@ -20,6 +20,10 @@ const ORIGEN_LABELS = {
   telefono: { label: 'Teléfono', tone: 'blue' },
   'cliente-web': { label: 'Página web', tone: 'amber' },
 }
+
+// Umbral por defecto para avisar stock bajo cuando el producto de inventario
+// no tiene un "minimo" propio configurado.
+const UMBRAL_DEFECTO = 5
 
 export function orderOrigen(order) {
   if (order.origen) return order.origen
@@ -124,6 +128,8 @@ function printReceipt(order) {
 
 export default function OrdersTable({ onConnectionChange, isAdmin }) {
   const [orders, setOrders] = useState([])
+  const [menuItems, setMenuItems] = useState([])
+  const [inventoryItems, setInventoryItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [busyId, setBusyId] = useState(null)
@@ -148,10 +154,78 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
     return () => unsub()
   }, [onConnectionChange])
 
+  // Se usan para saber qué descontar del inventario cuando se entrega un pedido.
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'Menu'), (snap) => {
+      setMenuItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    })
+    return () => unsub()
+  }, [])
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'inventario'), (snap) => {
+      setInventoryItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    })
+    return () => unsub()
+  }, [])
+
+  // Recorre los platos del pedido, busca su receta en el menú y arma un solo
+  // batch que descuenta del inventario lo que corresponda. Devuelve la lista
+  // de productos que quedaron en 5 unidades o menos (o por debajo de su
+  // "minimo" propio) para avisarle al usuario al momento.
+  const descontarInventario = async (order) => {
+    if (!Array.isArray(order.items) || order.items.length === 0) return []
+
+    const totalesPorProducto = new Map() // inventarioId -> cantidad a restar
+    order.items.forEach((item) => {
+      const plato = menuItems.find((m) => m.nombre === item.nombre)
+      const receta = plato?.receta
+      if (!Array.isArray(receta) || receta.length === 0) return
+      receta.forEach((ing) => {
+        if (!ing.inventarioId || !Number(ing.cantidad)) return
+        const usado = Number(ing.cantidad) * Number(item.qty || 1)
+        totalesPorProducto.set(ing.inventarioId, (totalesPorProducto.get(ing.inventarioId) || 0) + usado)
+      })
+    })
+
+    if (totalesPorProducto.size === 0) return []
+
+    const batch = writeBatch(db)
+    const avisos = []
+    totalesPorProducto.forEach((cantidadUsada, inventarioId) => {
+      const invItem = inventoryItems.find((i) => i.id === inventarioId)
+      if (!invItem) return
+      const nuevaCantidad = Math.max(0, Number(invItem.cantidad || 0) - cantidadUsada)
+      batch.update(doc(db, 'inventario', inventarioId), { cantidad: nuevaCantidad })
+      const umbral = invItem.minimo != null ? Number(invItem.minimo) : UMBRAL_DEFECTO
+      if (nuevaCantidad <= umbral) {
+        avisos.push(`${invItem.nombre}: quedan ${nuevaCantidad} ${invItem.unidad || 'unidades'}`)
+      }
+    })
+    await batch.commit()
+    return avisos
+  }
+
   const setStatus = async (orderId, newStatus) => {
     setBusyId(orderId)
     try {
-      await writeAndContinue(updateDoc(doc(db, 'orders', orderId), { status: newStatus }))
+      const order = orders.find((o) => o.id === orderId)
+      // Solo se descuenta inventario la primera vez que un pedido pasa a
+      // "Entregado" — así evitamos restar dos veces si se toca el botón otra vez.
+      const debeDescontar = newStatus === 'delivered' && order?.status !== 'delivered' && !order?.stockDescontado
+      let avisos = []
+      if (debeDescontar) {
+        avisos = await descontarInventario(order)
+      }
+      await writeAndContinue(
+        updateDoc(doc(db, 'orders', orderId), {
+          status: newStatus,
+          ...(debeDescontar ? { stockDescontado: true } : {}),
+        })
+      )
+      if (avisos.length > 0) {
+        alert('⚠️ Pocas existencias tras este pedido:\n' + avisos.join('\n'))
+      }
     } catch (err) {
       console.error(err)
       alert('No se pudo actualizar el pedido: ' + err.message)
