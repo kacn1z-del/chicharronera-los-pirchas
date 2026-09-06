@@ -13,6 +13,7 @@ import UsersPanel from './components/UsersPanel'
 import MenuImportPanel from './components/MenuImportPanel'
 import MenuEditor from './components/MenuEditor'
 import InventoryPanel from './components/InventoryPanel'
+import LowStockBanner from './components/LowStockBanner'
 import FloorPlanPanel from './components/FloorPlanPanel'
 import CashClosingPanel from './components/CashClosingPanel'
 import PhoneOrderPanel from './components/PhoneOrderPanel'
@@ -87,6 +88,8 @@ export default function App() {
 
       <div className="app-main">
         <TopBar section={activeSection} connected={connected} nombre={nombre} onLogout={logout} />
+
+        <LowStockBanner />
 
         <main className="app-content">
           {activeSection === 'resumen' && (
