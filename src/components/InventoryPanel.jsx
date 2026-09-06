@@ -5,6 +5,10 @@ import { INVENTARIO_SEED } from '../data/inventarioSeed'
 
 const UNIDADES = ['unidades', 'kg', 'g', 'l', 'ml', 'paquetes', 'cajas']
 
+// Si un producto no tiene su propio "mínimo" configurado, se avisa igual en
+// cuanto quede en 5 unidades o menos.
+const UMBRAL_DEFECTO = 5
+
 function emptyDraft() {
   return { nombre: '', categoria: '', cantidad: '', unidad: 'unidades', minimo: '', notas: '' }
 }
@@ -245,7 +249,8 @@ export default function InventoryPanel({ isAdmin = false }) {
           </thead>
           <tbody>
             {sorted.map((item) => {
-              const bajo = item.minimo != null && Number(item.cantidad || 0) <= Number(item.minimo)
+              const umbral = item.minimo != null ? Number(item.minimo) : UMBRAL_DEFECTO
+              const bajo = Number(item.cantidad || 0) <= umbral
               return isAdmin && editingId === item.id ? (
                 <tr key={item.id}>
                   <td colSpan={5} data-label="">
