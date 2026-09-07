@@ -112,31 +112,35 @@ async function printReceipt(order) {
     printWindow.document.write('<p style="font-family:sans-serif;padding:20px;">Preparando recibo…</p>')
   }
 
-  const numeroPedido = await asegurarNumeroPedido(order)
-  const itemsHtml = (order.items || [])
-    .map(
-      (item) =>
-        `<div class="row"><span>${item.qty} × ${item.nombre}</span><span>${formatColones(
-          item.precio * item.qty
-        )}</span></div>`
-    )
-    .join('')
+  try {
+    const numeroPedido = await Promise.race([
+      asegurarNumeroPedido(order),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Tardó demasiado (10s) — revisá tu conexión o los permisos de Firestore.')), 10000)),
+    ])
+    const itemsHtml = (order.items || [])
+      .map(
+        (item) =>
+          `<div class="row"><span>${item.qty} × ${item.nombre}</span><span>${formatColones(
+            item.precio * item.qty
+          )}</span></div>`
+      )
+      .join('')
 
-  // Si ya está facturado ante Hacienda, el recibo incluye los datos del
-  // comprobante electrónico (clave, consecutivo, resolución) — igual que
-  // trae cualquier factura o tiquete electrónico oficial.
-  const facturado = order.facturaEstado === 'aceptado' && order.facturaClave
-  const facturaHtml = facturado
-    ? `
+    // Si ya está facturado ante Hacienda, el recibo incluye los datos del
+    // comprobante electrónico (clave, consecutivo, resolución) — igual que
+    // trae cualquier factura o tiquete electrónico oficial.
+    const facturado = order.facturaEstado === 'aceptado' && order.facturaClave
+    const facturaHtml = facturado
+      ? `
   <div class="factura">
     <p class="meta center"><strong>${order.facturaTipo === 'factura' ? 'Factura' : 'Tiquete'} electrónico</strong></p>
     <p class="meta center">Consecutivo: ${order.facturaConsecutivo || '—'}</p>
     <p class="clave">Clave: ${order.facturaClave}</p>
     <p class="meta center">Autorizada mediante resolución N.° MH-DGT-RES-0027-2024</p>
   </div>`
-    : ''
+      : ''
 
-  const html = `<!doctype html>
+    const html = `<!doctype html>
 <html lang="es">
 <head>
 <meta charset="UTF-8" />
@@ -173,10 +177,22 @@ async function printReceipt(order) {
 </body>
 </html>`
 
-  if (!printWindow) return
-  printWindow.document.open()
-  printWindow.document.write(html)
-  printWindow.document.close()
+    if (!printWindow) return
+    // En vez de document.write (que en Safari de iPhone a veces se pierde
+    // si pasó tiempo/async antes), se navega la ventana a una URL de datos
+    // con el HTML completo — más confiable en iOS.
+    printWindow.location.replace('data:text/html;charset=utf-8,' + encodeURIComponent(html))
+  } catch (err) {
+    console.error('Error preparando el recibo:', err)
+    if (printWindow) {
+      printWindow.location.replace(
+        'data:text/html;charset=utf-8,' +
+          encodeURIComponent(
+            `<p style="font-family:sans-serif;padding:20px;color:#b00;">No se pudo preparar el recibo:<br>${err.message}</p>`
+          )
+      )
+    }
+  }
 }
 
 export default function OrdersTable({ onConnectionChange, isAdmin }) {
@@ -558,4 +574,3 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
     </div>
   )
 }
-
