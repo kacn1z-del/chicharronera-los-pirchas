@@ -242,6 +242,7 @@ export default async function handler(req, res) {
 
     const httpClient = new HttpClient({
       baseUrl,
+      apiBaseUrl: baseUrl,
       getToken: () => obtenerAccessToken(environment),
     })
 
@@ -283,4 +284,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: err.message })
   }
 }
-
