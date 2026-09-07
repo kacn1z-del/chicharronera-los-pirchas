@@ -103,6 +103,15 @@ async function asegurarNumeroPedido(order) {
 }
 
 async function printReceipt(order) {
+  // Ojo: hay que abrir la ventana ANTES de cualquier "await" — si se abre
+  // después de esperar datos (como el número de pedido), el navegador del
+  // celular ya no lo reconoce como una acción directa del usuario y bloquea
+  // el popup en silencio, sin ningún error visible ("no pasa nada").
+  const printWindow = window.open('', '_blank')
+  if (printWindow) {
+    printWindow.document.write('<p style="font-family:sans-serif;padding:20px;">Preparando recibo…</p>')
+  }
+
   const numeroPedido = await asegurarNumeroPedido(order)
   const itemsHtml = (order.items || [])
     .map(
@@ -164,7 +173,6 @@ async function printReceipt(order) {
 </body>
 </html>`
 
-  const printWindow = window.open('', '_blank')
   if (!printWindow) return
   printWindow.document.open()
   printWindow.document.write(html)
@@ -317,8 +325,35 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
   const facturarOrder = async (order) => {
     if (order.facturaEstado === 'aceptado') return
     if (!window.confirm(`¿Emitir comprobante electrónico para este pedido?`)) return
+
+    // Si el pedido todavía no tiene correo/cédula del cliente, se pregunta
+    // acá antes de facturar — los dos son opcionales. Con cédula se emite
+    // Factura Electrónica completa; sin ella, Tiquete Electrónico (el caso
+    // normal de un cliente que solo pide en la mesa). Con correo, el
+    // comprobante se le manda por email apenas Hacienda lo acepte.
+    let datosCliente = {}
+    if (!order.clientEmail && !order.clientCedula) {
+      const correo = window.prompt(
+        'Correo del cliente (opcional, para mandarle la factura por email — dejá vacío si no aplica):',
+        ''
+      )
+      if (correo === null) return // canceló el prompt, no sigue
+      const cedula = window.prompt(
+        'Cédula del cliente (opcional — solo si necesita Factura completa, no Tiquete):',
+        ''
+      )
+      if (cedula === null) return
+      datosCliente = {
+        ...(correo.trim() ? { clientEmail: correo.trim() } : {}),
+        ...(cedula.trim() ? { clientCedula: cedula.trim() } : {}),
+      }
+    }
+
     setFacturandoId(order.id)
     try {
+      if (Object.keys(datosCliente).length > 0) {
+        await writeAndContinue(updateDoc(doc(db, 'orders', order.id), datosCliente))
+      }
       const res = await fetch('/api/facturar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -328,7 +363,10 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
       if (!res.ok) {
         throw new Error(data.error + (data.motivo ? `: ${data.motivo}` : ''))
       }
-      alert(`Comprobante aceptado por Hacienda.\nClave: ${data.clave}`)
+      alert(
+        `Comprobante aceptado por Hacienda.\nClave: ${data.clave}` +
+          (datosCliente.clientEmail ? data.correoEnviado ? '\nSe envió por correo.' : '\nNo se pudo enviar el correo.' : '')
+      )
     } catch (err) {
       console.error(err)
       alert('No se pudo facturar el pedido: ' + err.message)
