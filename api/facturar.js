@@ -97,6 +97,62 @@ async function obtenerAccessToken(environment) {
   return tokenCacheado
 }
 
+// Envío y sondeo del comprobante hablando directo con la API pública de
+// Hacienda (v4.4), sin pasar por HttpClient/submitAndWait del SDK. Se usa
+// como respaldo si esas utilidades del SDK fallan por un desajuste interno
+// de versión.
+async function enviarYEsperarDirecto({ baseUrl, environment, clave, comprobanteXml }) {
+  const token = await obtenerAccessToken(environment)
+
+  const envioRes = await fetch(`${baseUrl}/recepcion`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      clave,
+      fecha: new Date().toISOString(),
+      emisor: { tipoIdentificacion: '01', numeroIdentificacion: EMISOR.cedula },
+      comprobanteXml,
+    }),
+  })
+
+  if (envioRes.status !== 201 && envioRes.status !== 202) {
+    const texto = await envioRes.text().catch(() => '')
+    throw new Error(`Hacienda rechazó el envío (status ${envioRes.status}): ${texto}`)
+  }
+
+  const limite = Date.now() + 60000
+  while (Date.now() < limite) {
+    await new Promise((r) => setTimeout(r, 3000))
+    const tokenVigente = await obtenerAccessToken(environment)
+    const consultaRes = await fetch(`${baseUrl}/recepcion/${clave}`, {
+      headers: { Authorization: `Bearer ${tokenVigente}` },
+    })
+    if (!consultaRes.ok) continue
+    const estado = await consultaRes.json()
+    const indEstado = estado['ind-estado']
+    if (indEstado === 'aceptado') {
+      return { accepted: true }
+    }
+    if (indEstado === 'rechazado') {
+      let motivo = 'Rechazado por Hacienda'
+      try {
+        const xmlRespuesta = Buffer.from(estado['respuesta-xml'], 'base64').toString('utf-8')
+        const match = xmlRespuesta.match(/<DetalleMensaje>([^<]*)<\/DetalleMensaje>/i)
+        if (match) motivo = match[1]
+      } catch {
+        // Si no se puede leer el detalle, se deja el motivo genérico.
+      }
+      return { accepted: false, rejectionReason: motivo }
+    }
+    // Si sigue "recibido" o "procesando", seguimos esperando.
+  }
+
+  throw new Error('Hacienda no respondió a tiempo (timeout de 60s) — revisá el estado más tarde con la clave: ' + clave)
+}
+
 // --- Conversión entre valores planos de JS y el formato tipado de Firestore REST ---
 
 function fromFirestoreValue(value) {
@@ -241,24 +297,40 @@ export default async function handler(req, res) {
         : 'https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1'
 
     const httpClient = new HttpClient({
+      environment,
       baseUrl,
       apiBaseUrl: baseUrl,
       getToken: () => obtenerAccessToken(environment),
     })
 
-    const resultado = await submitAndWait(
-      httpClient,
-      {
-        clave,
-        fecha: new Date().toISOString(),
-        emisor: {
-          tipoIdentificacion: '01',
-          numeroIdentificacion: EMISOR.cedula,
+    let resultado
+    try {
+      resultado = await submitAndWait(
+        httpClient,
+        {
+          clave,
+          fecha: new Date().toISOString(),
+          emisor: {
+            tipoIdentificacion: '01',
+            numeroIdentificacion: EMISOR.cedula,
+          },
+          comprobanteXml: xmlFirmadoBase64,
         },
+        { pollIntervalMs: 3000, timeoutMs: 60000 },
+      )
+    } catch (sdkErr) {
+      // La librería @dojocoding/hacienda-sdk cambió de forma entre
+      // versiones y su HttpClient/submitAndWait no siempre coincide con lo
+      // documentado. Si falla por eso (no por un rechazo real de
+      // Hacienda), hacemos el envío y el sondeo nosotros mismos, hablando
+      // directo con la API pública y estable de Hacienda.
+      resultado = await enviarYEsperarDirecto({
+        baseUrl,
+        environment,
+        clave,
         comprobanteXml: xmlFirmadoBase64,
-      },
-      { pollIntervalMs: 3000, timeoutMs: 60000 },
-    )
+      })
+    }
 
     // 6. Guardar el resultado en el pedido
     await patchDocument(client, `orders/${orderId}`, {
