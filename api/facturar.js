@@ -9,7 +9,7 @@
 // POST /api/facturar   body: { "orderId": "..." }
 
 import { JWT } from 'google-auth-library'
-import { HttpClient, signAndEncode, submitAndWait, DocumentType } from '@dojocoding/hacienda-sdk'
+import { signAndEncode, DocumentType } from '@dojocoding/hacienda-sdk'
 import { buildComprobanteFromOrder } from '../lib/build-tiquete.js'
 
 const PROJECT_ID = 'acosta-food'
@@ -296,41 +296,12 @@ export default async function handler(req, res) {
         ? 'https://api.comprobanteselectronicos.go.cr/recepcion/v1'
         : 'https://api.comprobanteselectronicos.go.cr/recepcion-sandbox/v1'
 
-    const httpClient = new HttpClient({
-      environment,
+    const resultado = await enviarYEsperarDirecto({
       baseUrl,
-      apiBaseUrl: baseUrl,
-      getToken: () => obtenerAccessToken(environment),
+      environment,
+      clave,
+      comprobanteXml: xmlFirmadoBase64,
     })
-
-    let resultado
-    try {
-      resultado = await submitAndWait(
-        httpClient,
-        {
-          clave,
-          fecha: new Date().toISOString(),
-          emisor: {
-            tipoIdentificacion: '01',
-            numeroIdentificacion: EMISOR.cedula,
-          },
-          comprobanteXml: xmlFirmadoBase64,
-        },
-        { pollIntervalMs: 3000, timeoutMs: 60000 },
-      )
-    } catch (sdkErr) {
-      // La librería @dojocoding/hacienda-sdk cambió de forma entre
-      // versiones y su HttpClient/submitAndWait no siempre coincide con lo
-      // documentado. Si falla por eso (no por un rechazo real de
-      // Hacienda), hacemos el envío y el sondeo nosotros mismos, hablando
-      // directo con la API pública y estable de Hacienda.
-      resultado = await enviarYEsperarDirecto({
-        baseUrl,
-        environment,
-        clave,
-        comprobanteXml: xmlFirmadoBase64,
-      })
-    }
 
     // 6. Guardar el resultado en el pedido
     await patchDocument(client, `orders/${orderId}`, {
