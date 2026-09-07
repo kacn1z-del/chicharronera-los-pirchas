@@ -9,13 +9,7 @@
 // POST /api/facturar   body: { "orderId": "..." }
 
 import { JWT } from 'google-auth-library'
-import {
-  HaciendaClient,
-  HttpClient,
-  signAndEncode,
-  submitAndWait,
-  DocumentType,
-} from '@dojocoding/hacienda-sdk'
+import { HttpClient, signAndEncode, submitAndWait, DocumentType } from '@dojocoding/hacienda-sdk'
 import { buildComprobanteFromOrder } from '../lib/build-tiquete.js'
 
 const PROJECT_ID = 'acosta-food'
@@ -46,6 +40,61 @@ function getAuthClient() {
     })
   }
   return authClient
+}
+
+// --- Autenticación directa contra el IDP de Hacienda ---
+//
+// Desde la migración a TRIBU-CR (octubre 2025), el usuario que Hacienda
+// genera para conectar sistemas tiene el formato
+// "cpf-01-XXXX-XXXX@prod.comprobanteselectronicos.go.cr" (se consigue en
+// ovitribucr.hacienda.go.cr → Mi perfil → Contraseña). El SDK todavía arma
+// el usuario a su manera internamente y no coincide con ese formato nuevo,
+// así que pedimos el token nosotros mismos, con el usuario exacto que
+// Hacienda espera (HACIENDA_AUTH_USER), en vez de dejar que la librería lo
+// arme sola a partir de la cédula.
+let tokenCacheado = null
+let tokenCacheadoExpira = 0
+
+async function obtenerAccessToken(environment) {
+  const ahora = Date.now()
+  if (tokenCacheado && ahora < tokenCacheadoExpira) return tokenCacheado
+
+  const realm = environment === 'production' ? 'rut' : 'rut-stag'
+  const clientId = environment === 'production' ? 'api-prod' : 'api-stag'
+  const username = process.env.HACIENDA_AUTH_USER
+  const password = process.env.HACIENDA_PASSWORD
+
+  if (!username) {
+    throw new Error(
+      'Falta la variable HACIENDA_AUTH_USER con el usuario completo (ej: cpf-01-1343-0120@prod.comprobanteselectronicos.go.cr)'
+    )
+  }
+
+  const body = new URLSearchParams({
+    grant_type: 'password',
+    client_id: clientId,
+    username,
+    password,
+  })
+
+  const respuesta = await fetch(
+    `https://idp.comprobanteselectronicos.go.cr/auth/realms/${realm}/protocol/openid-connect/token`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    }
+  )
+
+  if (!respuesta.ok) {
+    const texto = await respuesta.text().catch(() => '')
+    throw new Error(`Token request failed with status ${respuesta.status} — ${texto || respuesta.statusText}`)
+  }
+
+  const datos = await respuesta.json()
+  tokenCacheado = datos.access_token
+  tokenCacheadoExpira = ahora + (Number(datos.expires_in || 280) - 30) * 1000
+  return tokenCacheado
 }
 
 // --- Conversión entre valores planos de JS y el formato tipado de Firestore REST ---
@@ -178,20 +227,11 @@ export default async function handler(req, res) {
 
     // 5. Autenticarse contra Hacienda y enviar
     const environment = process.env.HACIENDA_ENVIRONMENT || 'sandbox'
-    const idNumberUsado = process.env.HACIENDA_AUTH_USER || EMISOR.cedula
-    const haciendaClient = new HaciendaClient({
-      environment,
-      credentials: {
-        idType: '01',
-        idNumber: idNumberUsado,
-        password: process.env.HACIENDA_PASSWORD,
-      },
-    })
     try {
-      await haciendaClient.authenticate()
+      await obtenerAccessToken(environment)
     } catch (authErr) {
       throw new Error(
-        `DIAG auth falló. idNumber="${idNumberUsado}" (${idNumberUsado.length} caracteres) — ${authErr.message}`
+        `DIAG auth falló. usuario="${process.env.HACIENDA_AUTH_USER || '(sin definir)'}" — ${authErr.message}`
       )
     }
 
@@ -202,7 +242,7 @@ export default async function handler(req, res) {
 
     const httpClient = new HttpClient({
       baseUrl,
-      getToken: () => haciendaClient.getAccessToken(),
+      getToken: () => obtenerAccessToken(environment),
     })
 
     const resultado = await submitAndWait(
