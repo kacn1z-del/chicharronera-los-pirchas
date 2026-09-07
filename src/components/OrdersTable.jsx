@@ -103,15 +103,6 @@ async function asegurarNumeroPedido(order) {
 }
 
 async function printReceipt(order) {
-  // Ojo: hay que abrir la ventana ANTES de cualquier "await" — si se abre
-  // después de esperar datos (como el número de pedido), el navegador del
-  // celular ya no lo reconoce como una acción directa del usuario y bloquea
-  // el popup en silencio, sin ningún error visible ("no pasa nada").
-  const printWindow = window.open('', '_blank')
-  if (printWindow) {
-    printWindow.document.write('<p style="font-family:sans-serif;padding:20px;">Preparando recibo…</p>')
-  }
-
   try {
     const numeroPedido = await Promise.race([
       asegurarNumeroPedido(order),
@@ -173,25 +164,37 @@ async function printReceipt(order) {
   <div class="total"><span>Total</span><span>${formatColones(order.total)}</span></div>
   <p class="payment">Pago: ${order.paymentMethod || '—'}</p>
   ${facturaHtml}
-  <script>window.onload = () => { window.print(); };<\/script>
 </body>
 </html>`
 
-    if (!printWindow) return
-    // En vez de document.write (que en Safari de iPhone a veces se pierde
-    // si pasó tiempo/async antes), se navega la ventana a una URL de datos
-    // con el HTML completo — más confiable en iOS.
-    printWindow.location.replace('data:text/html;charset=utf-8,' + encodeURIComponent(html))
+    // En vez de abrir una ventana nueva (bloqueada o restringida de formas
+    // impredecibles por Safari/Chrome en el celular), se imprime desde un
+    // iframe invisible dentro de la misma página — no depende de popups.
+    const iframeAnterior = document.getElementById('recibo-print-frame')
+    if (iframeAnterior) iframeAnterior.remove()
+
+    const iframe = document.createElement('iframe')
+    iframe.id = 'recibo-print-frame'
+    iframe.style.position = 'fixed'
+    iframe.style.right = '0'
+    iframe.style.bottom = '0'
+    iframe.style.width = '0'
+    iframe.style.height = '0'
+    iframe.style.border = '0'
+    iframe.onload = () => {
+      try {
+        iframe.contentWindow.focus()
+        iframe.contentWindow.print()
+      } catch (printErr) {
+        console.error('Error al imprimir:', printErr)
+        alert('No se pudo abrir el diálogo de impresión: ' + printErr.message)
+      }
+    }
+    document.body.appendChild(iframe)
+    iframe.srcdoc = html
   } catch (err) {
     console.error('Error preparando el recibo:', err)
-    if (printWindow) {
-      printWindow.location.replace(
-        'data:text/html;charset=utf-8,' +
-          encodeURIComponent(
-            `<p style="font-family:sans-serif;padding:20px;color:#b00;">No se pudo preparar el recibo:<br>${err.message}</p>`
-          )
-      )
-    }
+    alert('No se pudo preparar el recibo: ' + err.message)
   }
 }
 
