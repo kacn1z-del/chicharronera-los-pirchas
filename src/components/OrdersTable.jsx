@@ -113,6 +113,20 @@ async function printReceipt(order) {
     )
     .join('')
 
+  // Si ya está facturado ante Hacienda, el recibo incluye los datos del
+  // comprobante electrónico (clave, consecutivo, resolución) — igual que
+  // trae cualquier factura o tiquete electrónico oficial.
+  const facturado = order.facturaEstado === 'aceptado' && order.facturaClave
+  const facturaHtml = facturado
+    ? `
+  <div class="factura">
+    <p class="meta center"><strong>${order.facturaTipo === 'factura' ? 'Factura' : 'Tiquete'} electrónico</strong></p>
+    <p class="meta center">Consecutivo: ${order.facturaConsecutivo || '—'}</p>
+    <p class="clave">Clave: ${order.facturaClave}</p>
+    <p class="meta center">Autorizada mediante resolución N.° MH-DGT-RES-0027-2024</p>
+  </div>`
+    : ''
+
   const html = `<!doctype html>
 <html lang="es">
 <head>
@@ -130,6 +144,8 @@ async function printReceipt(order) {
   .row { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px; gap: 4px; }
   .total { display: flex; justify-content: space-between; font-weight: 700; font-size: 12px; margin-bottom: 3px; }
   .payment { font-size: 9px; text-align: center; margin-top: 3px; }
+  .factura { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #000; }
+  .clave { font-size: 7px; text-align: center; word-break: break-all; margin: 2px 0; }
 </style>
 </head>
 <body>
@@ -143,6 +159,7 @@ async function printReceipt(order) {
   <div class="items">${itemsHtml}</div>
   <div class="total"><span>Total</span><span>${formatColones(order.total)}</span></div>
   <p class="payment">Pago: ${order.paymentMethod || '—'}</p>
+  ${facturaHtml}
   <script>window.onload = () => { window.print(); };<\/script>
 </body>
 </html>`
