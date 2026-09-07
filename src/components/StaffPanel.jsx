@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { collection, onSnapshot } from 'firebase/firestore'
+import { collection, doc, onSnapshot, updateDoc } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 
 const ROL_LABELS = {
@@ -18,6 +18,20 @@ export default function StaffPanel() {
   const [rol, setRol] = useState('invitado')
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState(null)
+  const [cambiandoRolId, setCambiandoRolId] = useState(null)
+
+  const cambiarRol = async (member) => {
+    const nuevoRol = member.rol === 'admin' ? 'invitado' : 'admin'
+    if (!window.confirm(`¿Cambiar a ${member.nombre} a "${ROL_LABELS[nuevoRol]}"?`)) return
+    setCambiandoRolId(member.id)
+    try {
+      await updateDoc(doc(db, 'staff', member.id), { rol: nuevoRol })
+    } catch (err) {
+      alert('No se pudo cambiar el rol: ' + err.message)
+    } finally {
+      setCambiandoRolId(null)
+    }
+  }
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -120,6 +134,7 @@ export default function StaffPanel() {
               <th>Nombre</th>
               <th>Usuario</th>
               <th>Rol</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -131,6 +146,19 @@ export default function StaffPanel() {
                   <span className={`badge ${s.rol === 'admin' ? 'badge--green' : 'badge--blue'}`}>
                     {ROL_LABELS[s.rol] || s.rol}
                   </span>
+                </td>
+                <td data-label="Acciones">
+                  <button
+                    className="btn-secondary"
+                    disabled={cambiandoRolId === s.id}
+                    onClick={() => cambiarRol(s)}
+                  >
+                    {cambiandoRolId === s.id
+                      ? 'Cambiando…'
+                      : s.rol === 'admin'
+                      ? 'Bajar a invitado'
+                      : 'Subir a admin'}
+                  </button>
                 </td>
               </tr>
             ))}
