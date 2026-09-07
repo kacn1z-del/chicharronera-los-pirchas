@@ -10,6 +10,7 @@
 
 import { JWT } from 'google-auth-library'
 import { signAndEncode, DocumentType } from '@dojocoding/hacienda-sdk'
+import nodemailer from 'nodemailer'
 import { buildComprobanteFromOrder } from '../lib/build-tiquete.js'
 
 const PROJECT_ID = 'acosta-food'
@@ -151,6 +152,58 @@ async function enviarYEsperarDirecto({ baseUrl, environment, clave, comprobanteX
   }
 
   throw new Error('Hacienda no respondió a tiempo (timeout de 60s) — revisá el estado más tarde con la clave: ' + clave)
+}
+
+// --- Envío del comprobante por correo al cliente ---
+//
+// Solo aplica cuando el pedido trae un correo del cliente (order.clientEmail)
+// — los tiquetes a consumidor final normalmente no lo traen, y no es
+// obligatorio enviarlos por correo. Usa el mismo Gmail que ya aparece como
+// remitente en el XML (lospirchas24.facturas@gmail.com), vía un "App
+// Password" de Google (variables EMAIL_SMTP_USER / EMAIL_SMTP_PASSWORD).
+let transportadorCorreo = null
+function getTransportadorCorreo() {
+  if (!transportadorCorreo) {
+    transportadorCorreo = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_SMTP_USER,
+        pass: process.env.EMAIL_SMTP_PASSWORD,
+      },
+    })
+  }
+  return transportadorCorreo
+}
+
+async function enviarCorreoFactura({ order, clave, numeroConsecutivo, xmlFirmadoBase64, esFactura }) {
+  if (!order.clientEmail) return { enviado: false, motivo: 'El pedido no tiene correo de cliente' }
+  if (!process.env.EMAIL_SMTP_USER || !process.env.EMAIL_SMTP_PASSWORD) {
+    return { enviado: false, motivo: 'Faltan EMAIL_SMTP_USER / EMAIL_SMTP_PASSWORD' }
+  }
+
+  const tipoTexto = esFactura ? 'Factura electrónica' : 'Tiquete electrónico'
+  const xmlBuffer = Buffer.from(xmlFirmadoBase64, 'base64')
+
+  await getTransportadorCorreo().sendMail({
+    from: `"Los Pirchas" <${process.env.EMAIL_SMTP_USER}>`,
+    to: order.clientEmail,
+    subject: `${tipoTexto} — Los Pirchas — ${numeroConsecutivo}`,
+    text:
+      `Gracias por su compra en Los Pirchas.\n\n` +
+      `${tipoTexto}\n` +
+      `Consecutivo: ${numeroConsecutivo}\n` +
+      `Clave numérica: ${clave}\n\n` +
+      `Adjuntamos el comprobante electrónico en formato XML, ya aceptado por el Ministerio de Hacienda.`,
+    attachments: [
+      {
+        filename: `${clave}.xml`,
+        content: xmlBuffer,
+        contentType: 'application/xml',
+      },
+    ],
+  })
+
+  return { enviado: true }
 }
 
 // --- Conversión entre valores planos de JS y el formato tipado de Firestore REST ---
@@ -321,7 +374,19 @@ export default async function handler(req, res) {
       })
     }
 
-    return res.status(200).json({ ok: true, clave, numeroConsecutivo })
+    // 7. Mandar el comprobante por correo al cliente, si tiene correo.
+    let correo = { enviado: false }
+    try {
+      correo = await enviarCorreoFactura({ order, clave, numeroConsecutivo, xmlFirmadoBase64, esFactura })
+    } catch (mailErr) {
+      console.error('No se pudo enviar el correo de la factura:', mailErr)
+      correo = { enviado: false, motivo: mailErr.message }
+    }
+    await patchDocument(client, `orders/${orderId}`, {
+      facturaCorreoEnviado: correo.enviado,
+    })
+
+    return res.status(200).json({ ok: true, clave, numeroConsecutivo, correoEnviado: correo.enviado })
   } catch (err) {
     console.error('Error facturando:', err)
     return res.status(500).json({ error: err.message })
