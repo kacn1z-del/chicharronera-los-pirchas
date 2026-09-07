@@ -558,3 +558,4 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
     </div>
   )
 }
+
