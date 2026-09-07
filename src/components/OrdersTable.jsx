@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query, updateDoc, writeBatch } from 'firebase/firestore'
+import { collection, deleteDoc, doc, onSnapshot, orderBy, query, runTransaction, updateDoc, writeBatch } from 'firebase/firestore'
 import { db, writeAndContinue } from '../firebase'
 
 const STATUS_LABELS = {
@@ -75,7 +75,35 @@ function formatColones(value) {
   return `₡${Number(value ?? 0).toLocaleString('es-CR')}`
 }
 
-function printReceipt(order) {
+function formatNumeroPedido(numero) {
+  return `Pirchas #${String(numero).padStart(6, '0')}`
+}
+
+// Le asigna a un pedido un número consecutivo (1, 2, 3…) la primera vez que
+// se imprime, guardado en el propio pedido para que reimprimir el mismo
+// recibo no cambie el número. El correlativo vive en un documento contador
+// aparte para que dos personas imprimiendo pedidos distintos a la vez no
+// terminen con el mismo número.
+async function asegurarNumeroPedido(order) {
+  if (order.numeroPedido) return order.numeroPedido
+
+  const contadorRef = doc(db, 'contadores', 'pedidos')
+  const orderRef = doc(db, 'orders', order.id)
+
+  const numero = await runTransaction(db, async (tx) => {
+    const snap = await tx.get(contadorRef)
+    const ultimo = snap.exists() ? Number(snap.data().ultimo || 0) : 0
+    const siguiente = ultimo + 1
+    tx.set(contadorRef, { ultimo: siguiente }, { merge: true })
+    tx.update(orderRef, { numeroPedido: siguiente })
+    return siguiente
+  })
+
+  return numero
+}
+
+async function printReceipt(order) {
+  const numeroPedido = await asegurarNumeroPedido(order)
   const itemsHtml = (order.items || [])
     .map(
       (item) =>
@@ -109,7 +137,7 @@ function printReceipt(order) {
     <h1>Los Pirchas</h1>
     <p class="sub">Restaurante y Chicharronera</p>
   </div>
-  <p class="meta center">Pedido #${order.id.slice(0, 6)} · ${formatTime(order.createdAt)}</p>
+  <p class="meta center">${formatNumeroPedido(numeroPedido)} · ${formatTime(order.createdAt)}</p>
   <p class="meta center">${order.clientName || order.mesa || ''}${order.clientPhone ? ' · ' + order.clientPhone : ''}</p>
   ${order.clientAddress ? `<p class="meta center">${order.clientAddress}</p>` : ''}
   <div class="items">${itemsHtml}</div>
@@ -354,6 +382,9 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
               <tr key={order.id}>
                 <td data-label="Cliente">
                   {order.clientName || order.clientId || '—'}
+                  {order.numeroPedido && (
+                    <div className="order-sub mono">{formatNumeroPedido(order.numeroPedido)}</div>
+                  )}
                   {order.mesero && <div className="order-sub mono">Mesero: {order.mesero}</div>}
                 </td>
                 <td data-label="Mesa">{order.mesa ? order.mesa : '—'}</td>
