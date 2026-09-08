@@ -18,6 +18,7 @@ import FloorPlanPanel from './components/FloorPlanPanel'
 import CashClosingPanel from './components/CashClosingPanel'
 import PhoneOrderPanel from './components/PhoneOrderPanel'
 import StaffPanel from './components/StaffPanel'
+import CocinaView from './components/CocinaView'
 import './App.css'
 
 function useCollectionCount(name) {
@@ -34,7 +35,7 @@ function useCollectionCount(name) {
 }
 
 export default function App() {
-  const { user, role, nombre, loading, isAdmin, logout } = useAuth()
+  const { user, role, nombre, loading, isAdmin, isCocina, logout } = useAuth()
   const [section, setSection] = useState('resumen')
   const [firestoreConnected, setFirestoreConnected] = useState(true)
   const [browserOnline, setBrowserOnline] = useState(navigator.onLine)
@@ -66,6 +67,12 @@ export default function App() {
 
   if (!user || !role) {
     return <LoginScreen />
+  }
+
+  // Cocina tiene su propia pantalla dedicada, sin sidebar ni el resto del
+  // panel de administración — solo pedidos pendientes/en preparación.
+  if (isCocina) {
+    return <CocinaView nombre={nombre} onLogout={logout} />
   }
 
   // "equipo" es solo para admin — si un invitado quedó parado ahí (por
