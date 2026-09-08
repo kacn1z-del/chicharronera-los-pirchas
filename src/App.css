@@ -1424,3 +1424,30 @@
   font-size: 13px;
   color: var(--ink-900);
 }
+
+/* Modal genérico (usado por el formulario de datos para facturar) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(16, 36, 27, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 100;
+}
+
+.modal-card {
+  background: #fff;
+  border-radius: var(--radius-md, 12px);
+  padding: 20px;
+  max-width: 420px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+}
+
+.modal-card h3 {
+  margin: 0 0 6px;
+}
