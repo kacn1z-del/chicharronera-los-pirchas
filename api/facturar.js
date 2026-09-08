@@ -446,7 +446,10 @@ export default async function handler(req, res) {
       ? DocumentType.FACTURA_ELECTRONICA
       : DocumentType.TIQUETE_ELECTRONICO
     const key = esFactura ? 'facturaSequence' : 'tiqueteSequence'
-    const defaultStart = esFactura ? 1000000052 : 0
+    // Arranca bien por encima de cualquier número ya usado a mano en Tico
+    // Factura (la prueba con Pets Mania usó el consecutivo 53) para no
+    // volver a chocar con Hacienda por duplicado.
+    const defaultStart = esFactura ? 1000000100 : 0
 
     const meta = (await getDocument(client, '_meta/facturacion')) || {}
     const sequence = (meta[key] ?? defaultStart) + 1
