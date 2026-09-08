@@ -6,7 +6,7 @@
 //
 // POST /api/crear-usuario
 //   headers: Authorization: Bearer <ID token de quien está logueado>
-//   body: { usuario, nombre, password, rol }   // rol: "admin" | "invitado"
+//   body: { usuario, nombre, password, rol }   // rol: "admin" | "invitado" | "cocina"
 
 import { JWT } from 'google-auth-library'
 import { initializeApp, getApps, cert } from 'firebase-admin/app'
@@ -109,8 +109,8 @@ export default async function handler(req, res) {
   if (!usuario || !nombre || !password || !rol) {
     return res.status(400).json({ error: 'Faltan datos (usuario, nombre, password, rol)' })
   }
-  if (!['admin', 'invitado'].includes(rol)) {
-    return res.status(400).json({ error: 'El rol debe ser "admin" o "invitado"' })
+  if (!['admin', 'invitado', 'cocina'].includes(rol)) {
+    return res.status(400).json({ error: 'El rol debe ser "admin", "invitado" o "cocina"' })
   }
   if (password.length < 6) {
     return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' })
