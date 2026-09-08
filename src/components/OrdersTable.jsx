@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query, runTransaction, updateDoc, writeBatch } from 'firebase/firestore'
-import { db, writeAndContinue } from '../firebase'
+import { collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query, runTransaction, updateDoc, writeBatch } from 'firebase/firestore'
+import { db, auth, writeAndContinue } from '../firebase'
 
 const STATUS_LABELS = {
   pending: { label: 'Pendiente', tone: 'amber' },
@@ -419,8 +419,36 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
     )
   }
 
+  const diagnosticoPermisos = async () => {
+    const uid = auth.currentUser?.uid
+    if (!uid) {
+      alert('DIAGNÓSTICO: no hay ninguna sesión activa (auth.currentUser es null).')
+      return
+    }
+    let resultado = `DIAGNÓSTICO\n\nUID de la sesión activa:\n${uid}\n\n`
+    try {
+      const snap = await getDoc(doc(db, 'staff', uid))
+      if (!snap.exists()) {
+        resultado += `❌ No existe ningún documento en /staff/${uid}`
+      } else {
+        resultado += `✅ Documento encontrado en /staff/${uid}\nDatos: ${JSON.stringify(snap.data())}`
+      }
+    } catch (err) {
+      resultado += `❌ Error al leer /staff/${uid}:\n${err.message}`
+    }
+    alert(resultado)
+  }
+
   return (
     <div className="panel">
+      <button
+        type="button"
+        className="btn-secondary"
+        style={{ margin: '12px' }}
+        onClick={diagnosticoPermisos}
+      >
+        🔍 Diagnóstico de permisos (temporal)
+      </button>
       <table className="orders-table">
         <colgroup>
           <col className="col-cliente" />
@@ -577,4 +605,3 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
     </div>
   )
 }
-
