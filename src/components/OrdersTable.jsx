@@ -59,6 +59,23 @@ function whatsappLink(order) {
   return `https://wa.me/${phone}?text=${message}`
 }
 
+// Enlace de WhatsApp para mandarle al cliente los datos del comprobante ya
+// aceptado (clave, consecutivo, total) — se usa una vez facturado, junto al
+// correo automático.
+function whatsappFacturaLink(order) {
+  const phone = (order.clientPhone || '').replace(/[^\d]/g, '')
+  if (!phone || !order.facturaClave) return null
+  const tipoTexto = order.facturaTipo === 'factura' ? 'Factura electrónica' : 'Tiquete electrónico'
+  const message = encodeURIComponent(
+    `Hola ${order.clientName || ''}, aquí tenés el comprobante de tu pedido en Los Pirchas.\n\n` +
+      `${tipoTexto}\n` +
+      `Consecutivo: ${order.facturaConsecutivo}\n` +
+      `Clave: ${order.facturaClave}\n` +
+      `Total: ${formatColones(order.total)}`
+  )
+  return `https://wa.me/${phone}?text=${message}`
+}
+
 function itemsSummary(order) {
   if (!Array.isArray(order.items) || order.items.length === 0) return '—'
   return order.items.map((i) => `${i.qty}× ${i.nombre}${i.nota ? ` (${i.nota})` : ''}`).join(', ')
@@ -206,6 +223,7 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
   const [error, setError] = useState(null)
   const [busyId, setBusyId] = useState(null)
   const [facturandoId, setFacturandoId] = useState(null)
+  const [facturaModalOrder, setFacturaModalOrder] = useState(null)
 
   useEffect(() => {
     const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'))
@@ -341,33 +359,13 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
     }
   }
 
-  const facturarOrder = async (order) => {
+  const facturarOrder = (order) => {
     if (order.facturaEstado === 'aceptado') return
-    if (!window.confirm(`¿Emitir comprobante electrónico para este pedido?`)) return
+    setFacturaModalOrder(order)
+  }
 
-    // Si el pedido todavía no tiene correo/cédula del cliente, se pregunta
-    // acá antes de facturar — los dos son opcionales. Con cédula se emite
-    // Factura Electrónica completa; sin ella, Tiquete Electrónico (el caso
-    // normal de un cliente que solo pide en la mesa). Con correo, el
-    // comprobante se le manda por email apenas Hacienda lo acepte.
-    let datosCliente = {}
-    if (!order.clientEmail && !order.clientCedula) {
-      const correo = window.prompt(
-        'Correo del cliente (opcional, para mandarle la factura por email — dejá vacío si no aplica):',
-        ''
-      )
-      if (correo === null) return // canceló el prompt, no sigue
-      const cedula = window.prompt(
-        'Cédula del cliente (opcional — solo si necesita Factura completa, no Tiquete):',
-        ''
-      )
-      if (cedula === null) return
-      datosCliente = {
-        ...(correo.trim() ? { clientEmail: correo.trim() } : {}),
-        ...(cedula.trim() ? { clientCedula: cedula.trim() } : {}),
-      }
-    }
-
+  const confirmarFactura = async (order, datosCliente) => {
+    setFacturaModalOrder(null)
     setFacturandoId(order.id)
     try {
       if (Object.keys(datosCliente).length > 0) {
@@ -384,7 +382,7 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
       }
       alert(
         `Comprobante aceptado por Hacienda.\nClave: ${data.clave}` +
-          (datosCliente.clientEmail ? data.correoEnviado ? '\nSe envió por correo.' : '\nNo se pudo enviar el correo.' : '')
+          (datosCliente.clientEmail ? (data.correoEnviado ? '\nSe envió por correo.' : '\nNo se pudo enviar el correo.') : '')
       )
     } catch (err) {
       console.error(err)
@@ -576,6 +574,16 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
                     >
                       🖨️ Imprimir
                     </button>
+                    {whatsappFacturaLink(order) && (
+                      <a
+                        className="action-btn action-btn--green"
+                        href={whatsappFacturaLink(order)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        📱 Comprobante WhatsApp
+                      </a>
+                    )}
                     {isAdmin ? (
                       <button
                         type="button"
@@ -602,6 +610,88 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
           })}
         </tbody>
       </table>
+      {facturaModalOrder && (
+        <FacturaModal
+          order={facturaModalOrder}
+          onCancel={() => setFacturaModalOrder(null)}
+          onConfirm={(datos) => confirmarFactura(facturaModalOrder, datos)}
+        />
+      )}
+    </div>
+  )
+}
+
+// Formulario para completar los datos del cliente antes de facturar: nombre,
+// cédula, correo y dirección (para la Factura/Tiquete electrónico en sí) y
+// teléfono (para poder mandarle el comprobante por WhatsApp después). Todos
+// los campos son opcionales — sin cédula sale Tiquete en vez de Factura.
+function FacturaModal({ order, onCancel, onConfirm }) {
+  const [form, setForm] = useState({
+    nombre: order.clientName || '',
+    cedula: order.clientCedula || '',
+    correo: order.clientEmail || '',
+    direccion: order.clientAddress || '',
+    telefono: order.clientPhone || '',
+  })
+
+  const set = (campo) => (e) => setForm((f) => ({ ...f, [campo]: e.target.value }))
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    const datos = {
+      ...(form.nombre.trim() ? { clientName: form.nombre.trim() } : {}),
+      ...(form.cedula.trim() ? { clientCedula: form.cedula.trim() } : {}),
+      ...(form.correo.trim() ? { clientEmail: form.correo.trim() } : {}),
+      ...(form.direccion.trim() ? { clientAddress: form.direccion.trim() } : {}),
+      ...(form.telefono.trim() ? { clientPhone: form.telefono.trim() } : {}),
+    }
+    onConfirm(datos)
+  }
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-card">
+        <h3>Datos para el comprobante</h3>
+        <p className="dish-form__hint">
+          Todos son opcionales. Con cédula se emite Factura completa (si no, Tiquete). Con correo se
+          manda por email; con teléfono, además podés mandarlo por WhatsApp.
+        </p>
+        <form onSubmit={handleSubmit} className="dish-form">
+          <label>
+            Nombre del cliente
+            <input value={form.nombre} onChange={set('nombre')} placeholder="Opcional" />
+          </label>
+          <label>
+            Cédula
+            <input value={form.cedula} onChange={set('cedula')} placeholder="Opcional — para Factura completa" />
+          </label>
+          <label>
+            Correo electrónico
+            <input
+              type="email"
+              value={form.correo}
+              onChange={set('correo')}
+              placeholder="Opcional — para mandarlo por email"
+            />
+          </label>
+          <label>
+            Dirección
+            <input value={form.direccion} onChange={set('direccion')} placeholder="Opcional" />
+          </label>
+          <label>
+            Teléfono (WhatsApp)
+            <input value={form.telefono} onChange={set('telefono')} placeholder="Opcional — 8888-8888" />
+          </label>
+          <div className="dish-form__actions">
+            <button type="button" className="btn-secondary" onClick={onCancel}>
+              Cancelar
+            </button>
+            <button type="submit" className="btn-primary">
+              Facturar
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }
