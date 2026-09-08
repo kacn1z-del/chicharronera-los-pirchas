@@ -4,9 +4,13 @@ import { doc, onSnapshot } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 
 // Lee la sesión de Firebase y, si hay alguien logueado, su rol (guardado en
-// la colección "staff") — 'admin' (Auris, control total) o 'invitado'
-// (mesero, Roselle: pueden ver pedidos, cobrarlos, crear pedidos telefónicos
-// y hacer cierres de caja, pero no eliminar pedidos ni editar menú/inventario).
+// la colección "staff"):
+//   'admin'    — Auris, control total.
+//   'invitado' — mesero (Roselle): ver pedidos, cobrarlos, crear pedidos
+//                telefónicos y hacer cierres de caja, pero no eliminar
+//                pedidos ni editar menú/inventario.
+//   'cocina'   — pantalla de cocina: solo ve pedidos pendientes/en
+//                preparación y los marca "Preparado", nada más.
 export function useAuth() {
   const [user, setUser] = useState(null)
   const [role, setRole] = useState(null)
@@ -44,10 +48,11 @@ export function useAuth() {
 
   return {
     user,
-    role, // 'admin' | 'invitado' | null (null mientras carga o si no tiene perfil de staff)
+    role, // 'admin' | 'invitado' | 'cocina' | null (null mientras carga o si no tiene perfil de staff)
     nombre,
     loading,
     isAdmin: role === 'admin',
+    isCocina: role === 'cocina',
     logout: () => signOut(auth),
   }
 }
