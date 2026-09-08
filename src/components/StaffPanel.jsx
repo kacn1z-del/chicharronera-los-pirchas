@@ -5,6 +5,13 @@ import { auth, db } from '../firebase'
 const ROL_LABELS = {
   admin: 'Administrador',
   invitado: 'Invitado',
+  cocina: 'Cocina',
+}
+
+const ROL_BADGE_TONE = {
+  admin: 'badge--green',
+  invitado: 'badge--blue',
+  cocina: 'badge--amber',
 }
 
 export default function StaffPanel() {
@@ -20,8 +27,8 @@ export default function StaffPanel() {
   const [formError, setFormError] = useState(null)
   const [cambiandoRolId, setCambiandoRolId] = useState(null)
 
-  const cambiarRol = async (member) => {
-    const nuevoRol = member.rol === 'admin' ? 'invitado' : 'admin'
+  const cambiarRol = async (member, nuevoRol) => {
+    if (nuevoRol === member.rol) return
     if (!window.confirm(`¿Cambiar a ${member.nombre} a "${ROL_LABELS[nuevoRol]}"?`)) return
     setCambiandoRolId(member.id)
     try {
@@ -113,6 +120,7 @@ export default function StaffPanel() {
           Rol
           <select value={rol} onChange={(e) => setRol(e.target.value)}>
             <option value="invitado">Invitado (ver, cobrar, cerrar caja)</option>
+            <option value="cocina">Cocina (solo ve y marca pedidos preparados)</option>
             <option value="admin">Administrador (control total)</option>
           </select>
         </label>
@@ -134,7 +142,7 @@ export default function StaffPanel() {
               <th>Nombre</th>
               <th>Usuario</th>
               <th>Rol</th>
-              <th></th>
+              <th>Cambiar rol</th>
             </tr>
           </thead>
           <tbody>
@@ -143,22 +151,20 @@ export default function StaffPanel() {
                 <td data-label="Nombre">{s.nombre}</td>
                 <td data-label="Usuario" className="mono">{s.email}</td>
                 <td data-label="Rol">
-                  <span className={`badge ${s.rol === 'admin' ? 'badge--green' : 'badge--blue'}`}>
+                  <span className={`badge ${ROL_BADGE_TONE[s.rol] || 'badge--gray'}`}>
                     {ROL_LABELS[s.rol] || s.rol}
                   </span>
                 </td>
-                <td data-label="Acciones">
-                  <button
-                    className="btn-secondary"
+                <td data-label="Cambiar rol">
+                  <select
+                    value={s.rol}
                     disabled={cambiandoRolId === s.id}
-                    onClick={() => cambiarRol(s)}
+                    onChange={(e) => cambiarRol(s, e.target.value)}
                   >
-                    {cambiandoRolId === s.id
-                      ? 'Cambiando…'
-                      : s.rol === 'admin'
-                      ? 'Bajar a invitado'
-                      : 'Subir a admin'}
-                  </button>
+                    <option value="invitado">Invitado</option>
+                    <option value="cocina">Cocina</option>
+                    <option value="admin">Administrador</option>
+                  </select>
                 </td>
               </tr>
             ))}
