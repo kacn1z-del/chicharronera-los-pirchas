@@ -120,7 +120,7 @@ export default function StaffPanel() {
           Rol
           <select value={rol} onChange={(e) => setRol(e.target.value)}>
             <option value="invitado">Invitado (ver, cobrar, cerrar caja)</option>
-            <option value="cocina">Cocina (solo ve y marca pedidos preparados)</option>
+            <option value="cocina">Cocina (solo ver pedidos, marcar preparando/preparado)</option>
             <option value="admin">Administrador (control total)</option>
           </select>
         </label>
