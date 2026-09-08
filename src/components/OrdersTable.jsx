@@ -223,6 +223,7 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
   const [error, setError] = useState(null)
   const [busyId, setBusyId] = useState(null)
   const [facturandoId, setFacturandoId] = useState(null)
+  const [reenviandoId, setReenviandoId] = useState(null)
   const [facturaModalOrder, setFacturaModalOrder] = useState(null)
 
   useEffect(() => {
@@ -389,6 +390,30 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
       alert('No se pudo facturar el pedido: ' + err.message)
     } finally {
       setFacturandoId(null)
+    }
+  }
+
+  // Reenvía por correo el mismo comprobante (imagen con marca + XML) que ya
+  // se mandó automático al facturar — no vuelve a facturar ni a hablar con
+  // Hacienda, solo reenvía lo que ya está guardado en el pedido.
+  const reenviarCorreo = async (order) => {
+    setReenviandoId(order.id)
+    try {
+      const res = await fetch('/api/reenviar-correo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: order.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error + (data.motivo ? `: ${data.motivo}` : ''))
+      }
+      alert('Correo reenviado correctamente.')
+    } catch (err) {
+      console.error(err)
+      alert('No se pudo reenviar el correo: ' + err.message)
+    } finally {
+      setReenviandoId(null)
     }
   }
 
@@ -583,6 +608,16 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
                       >
                         📱 Comprobante WhatsApp
                       </a>
+                    )}
+                    {order.facturaEstado === 'aceptado' && order.clientEmail && (
+                      <button
+                        type="button"
+                        className="action-btn action-btn--blue"
+                        disabled={reenviandoId === order.id}
+                        onClick={() => reenviarCorreo(order)}
+                      >
+                        {reenviandoId === order.id ? 'Enviando…' : '✉️ Reenviar correo'}
+                      </button>
                     )}
                     {isAdmin ? (
                       <button
