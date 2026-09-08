@@ -11,6 +11,7 @@
 import { JWT } from 'google-auth-library'
 import { signAndEncode, DocumentType } from '@dojocoding/hacienda-sdk'
 import nodemailer from 'nodemailer'
+import QRCode from 'qrcode'
 import { buildComprobanteFromOrder } from '../lib/build-tiquete.js'
 
 const PROJECT_ID = 'acosta-food'
@@ -175,6 +176,135 @@ function getTransportadorCorreo() {
   return transportadorCorreo
 }
 
+function formatColones(value) {
+  return `₡${Number(value ?? 0).toLocaleString('es-CR')}`
+}
+
+const PAGO_LABELS = {
+  efectivo: 'Efectivo',
+  sinpe: 'SINPE Móvil',
+  tarjeta: 'Tarjeta',
+}
+
+// Plantilla del correo con el diseño de marca de Los Pirchas (usa las
+// ilustraciones en /public/receipt/, subidas al sitio para que el correo
+// las pueda cargar como imágenes normales).
+function buildFacturaEmailHtml({ order, clave, numeroConsecutivo, esFactura, qrDataUrl }) {
+  const tipoTexto = esFactura ? 'FACTURA ELECTRÓNICA' : 'TIQUETE ELECTRÓNICO'
+  const base = 'https://admin.lospirchas.com'
+  const fecha = new Date().toLocaleString('es-CR', {
+    day: 'numeric',
+    month: 'numeric',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+
+  const filasHtml = (order.items || [])
+    .map(
+      (item) => `
+      <tr>
+        <td style="padding:8px 6px;border-bottom:1px solid #e6dcc8;text-align:center;">${item.qty}</td>
+        <td style="padding:8px 6px;border-bottom:1px solid #e6dcc8;">${item.nombre}</td>
+        <td style="padding:8px 6px;border-bottom:1px solid #e6dcc8;text-align:right;">${formatColones(item.precio)}</td>
+        <td style="padding:8px 6px;border-bottom:1px solid #e6dcc8;text-align:right;">${formatColones(item.precio * item.qty)}</td>
+      </tr>`
+    )
+    .join('')
+
+  const pagoLabel = PAGO_LABELS[order.paymentMethod] || order.paymentMethod || '—'
+  const clienteLinea1 = order.clientName || order.mesa ? `Mesa ${order.mesa}` : 'Pedido telefónico'
+  const clienteLinea2 = order.clientPhone || ''
+
+  return `<!doctype html>
+<html>
+<body style="margin:0;padding:24px 12px;background:#e8dfcf;font-family:Georgia,'Times New Roman',serif;color:#241a10;">
+  <table role="presentation" width="100%" style="max-width:520px;margin:0 auto;background:#f6efe3;border:6px solid #d9711f;border-radius:6px;">
+    <tr>
+      <td style="padding:22px 26px 6px;">
+
+        <table role="presentation" width="100%">
+          <tr>
+            <td width="70"><img src="${base}/receipt/burger.jpg" width="64" style="border-radius:6px;display:block;" alt="" /></td>
+            <td align="center">
+              <img src="${base}/receipt/emblem.jpg" width="150" style="display:block;margin:0 auto;" alt="Los Pirchas" />
+            </td>
+            <td width="70"></td>
+          </tr>
+        </table>
+
+        <h1 style="text-align:center;font-size:22px;letter-spacing:1px;margin:14px 0 18px;">🔥 ${tipoTexto} 🔥</h1>
+
+        <table role="presentation" width="100%" style="font-size:13px;line-height:1.5;margin-bottom:14px;">
+          <tr>
+            <td style="vertical-align:top;">
+              <strong>Los Pirchas</strong><br/>
+              Restaurante y Chicharronera<br/>
+              San Luis, Acosta<br/>
+              ${fecha}
+            </td>
+            <td style="vertical-align:top;text-align:right;">
+              ${clienteLinea1}<br/>
+              ${clienteLinea2}
+            </td>
+          </tr>
+        </table>
+
+        <table role="presentation" width="100%" style="border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr style="background:#241a10;color:#fff;">
+              <th style="padding:8px 6px;text-align:center;">Cant.</th>
+              <th style="padding:8px 6px;text-align:left;">Descripción</th>
+              <th style="padding:8px 6px;text-align:right;">Precio Unit.</th>
+              <th style="padding:8px 6px;text-align:right;">Total</th>
+            </tr>
+          </thead>
+          <tbody>${filasHtml}</tbody>
+        </table>
+
+        <table role="presentation" width="100%" style="margin-top:18px;">
+          <tr>
+            <td style="vertical-align:middle;font-style:italic;font-size:17px;color:#6b4a2b;">
+              ¡Gracias por<br/>su preferencia!
+            </td>
+            <td align="right">
+              <table role="presentation" style="margin-left:auto;">
+                <tr>
+                  <td style="background:#241a10;color:#fff;font-weight:bold;padding:10px 18px;border-radius:4px;font-size:15px;">
+                    TOTAL&nbsp;&nbsp;${formatColones(order.total)}
+                  </td>
+                </tr>
+              </table>
+              <p style="font-size:12.5px;margin:8px 0 0;">💲 Pago: ${pagoLabel}</p>
+            </td>
+          </tr>
+        </table>
+
+        <hr style="border:none;border-top:1px solid #d9c9a8;margin:18px 0;" />
+
+        <table role="presentation" width="100%">
+          <tr>
+            <td width="100" style="vertical-align:top;">
+              <img src="${qrDataUrl}" width="92" style="display:block;" alt="QR" />
+            </td>
+            <td style="vertical-align:top;font-size:11px;line-height:1.6;color:#4a3a28;">
+              <strong>${esFactura ? 'Factura electrónica' : 'Tiquete electrónico'}</strong><br/>
+              Consecutivo: ${numeroConsecutivo}<br/>
+              Clave: <span style="word-break:break-all;">${clave}</span><br/>
+              Autorizada mediante resolución N.° MH-DGT-RES-0027-2024<br/>
+              🌐 ${base}/ &nbsp; 📅 ${fecha}
+            </td>
+          </tr>
+        </table>
+
+        <p style="text-align:right;font-style:italic;font-size:16px;color:#d9711f;margin:14px 0 4px;">Los Pirchas</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+}
+
 async function enviarCorreoFactura({ order, clave, numeroConsecutivo, xmlFirmadoBase64, esFactura }) {
   if (!order.clientEmail) return { enviado: false, motivo: 'El pedido no tiene correo de cliente' }
   if (!process.env.EMAIL_SMTP_USER || !process.env.EMAIL_SMTP_PASSWORD) {
@@ -183,6 +313,8 @@ async function enviarCorreoFactura({ order, clave, numeroConsecutivo, xmlFirmado
 
   const tipoTexto = esFactura ? 'Factura electrónica' : 'Tiquete electrónico'
   const xmlBuffer = Buffer.from(xmlFirmadoBase64, 'base64')
+  const qrDataUrl = await QRCode.toDataURL(clave, { width: 240, margin: 1 })
+  const html = buildFacturaEmailHtml({ order, clave, numeroConsecutivo, esFactura, qrDataUrl })
 
   await getTransportadorCorreo().sendMail({
     from: `"Los Pirchas" <${process.env.EMAIL_SMTP_USER}>`,
@@ -194,6 +326,7 @@ async function enviarCorreoFactura({ order, clave, numeroConsecutivo, xmlFirmado
       `Consecutivo: ${numeroConsecutivo}\n` +
       `Clave numérica: ${clave}\n\n` +
       `Adjuntamos el comprobante electrónico en formato XML, ya aceptado por el Ministerio de Hacienda.`,
+    html,
     attachments: [
       {
         filename: `${clave}.xml`,
