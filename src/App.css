@@ -1568,6 +1568,14 @@
   line-height: 1.4;
 }
 
+.cocina-card__sin-items {
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--ink-400);
+  font-style: italic;
+  margin: 0;
+}
+
 .cocina-card__actions {
   margin-top: 8px;
 }
