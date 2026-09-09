@@ -49,14 +49,32 @@ function formatTime(createdAt) {
   return date.toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })
 }
 
+// Normaliza un teléfono de Costa Rica al formato que necesita wa.me:
+// código de país (506) + los 8 dígitos, sin espacios ni guiones. Sin el
+// código de país, WhatsApp intenta adivinar el país del número y a veces
+// arma un número inválido/recortado (el bug que reportó el cliente).
+function normalizeCrPhone(raw) {
+  let phone = (raw || '').replace(/[^\d]/g, '')
+  if (!phone) return null
+  // Ya viene con código de país (506 + 8 dígitos = 11 en total).
+  if (phone.length === 11 && phone.startsWith('506')) return phone
+  // Caso normal: 8 dígitos locales -> le anteponemos 506.
+  if (phone.length === 8) return `506${phone}`
+  // Algunos capturan con un 0 pegado adelante por error (08888-1234).
+  if (phone.length === 9 && phone.startsWith('0')) return `506${phone.slice(1)}`
+  // Cualquier otro largo es un número mal cargado — mejor no armar un
+  // link roto que abra el chat de otra persona; se oculta el botón.
+  return null
+}
+
 function whatsappLink(order) {
-  const phone = (order.clientPhone || '').replace(/[^\d]/g, '')
+  const phone = normalizeCrPhone(order.clientPhone)
+  if (!phone) return null
   const message = encodeURIComponent(
     `Hola ${order.clientName || ''}, tu pedido #${order.id.slice(0, 6)} en la chicharronera Los Pirchas está: ${
       statusInfo(order.status).label
     }.`
   )
-  if (!phone) return null
   return `https://wa.me/${phone}?text=${message}`
 }
 
@@ -64,7 +82,7 @@ function whatsappLink(order) {
 // aceptado (clave, consecutivo, total) — se usa una vez facturado, junto al
 // correo automático.
 function whatsappFacturaLink(order) {
-  const phone = (order.clientPhone || '').replace(/[^\d]/g, '')
+  const phone = normalizeCrPhone(order.clientPhone)
   if (!phone || !order.facturaClave) return null
   const tipoTexto = order.facturaTipo === 'factura' ? 'Factura electrónica' : 'Tiquete electrónico'
   const message = encodeURIComponent(
