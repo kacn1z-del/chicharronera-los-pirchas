@@ -12,9 +12,27 @@ import { db } from '../firebase'
 // no factura, no cancela, no elimina — cuanto más simple la pantalla, menos
 // margen de error con las manos ocupadas.
 
-function itemsSummary(order) {
-  if (!Array.isArray(order.items) || order.items.length === 0) return '—'
-  return order.items.map((i) => `${i.qty}× ${i.nombre}${i.nota ? ` (${i.nota})` : ''}`)
+// A cocina no le interesan las bebidas (no las prepara) — se ocultan de la
+// lista de items para que la tarjeta muestre solo lo que sí hay que cocinar.
+// El pedido en sí guarda solo nombre/precio/cantidad, no la categoría, así
+// que para saber cuáles son bebidas hay que cruzar contra la colección
+// "Menu" (donde sí vive el campo "categoria").
+const CATEGORIAS_SIN_COCINA = ['bebidas']
+
+function normalizar(text) {
+  return (text || '')
+    .toString()
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
+function itemsSummary(order, nombresBebida) {
+  if (!Array.isArray(order.items) || order.items.length === 0) return []
+  return order.items
+    .filter((i) => !nombresBebida.has(normalizar(i.nombre)))
+    .map((i) => `${i.qty}× ${i.nombre}${i.nota ? ` (${i.nota})` : ''}`)
 }
 
 function formatTime(createdAt) {
@@ -42,6 +60,24 @@ export default function CocinaView({ nombre, onLogout }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [busyId, setBusyId] = useState(null)
+  const [nombresBebida, setNombresBebida] = useState(new Set())
+
+  useEffect(() => {
+    // Se arma un set con los nombres (normalizados) de todo lo que esté en
+    // una categoría de bebidas, para poder filtrarlos de cada pedido sin
+    // tener que guardar la categoría dentro del pedido mismo.
+    const unsubMenu = onSnapshot(collection(db, 'Menu'), (snap) => {
+      const bebidas = new Set()
+      snap.docs.forEach((d) => {
+        const item = d.data()
+        if (CATEGORIAS_SIN_COCINA.includes(normalizar(item.categoria))) {
+          bebidas.add(normalizar(item.nombre))
+        }
+      })
+      setNombresBebida(bebidas)
+    })
+    return () => unsubMenu()
+  }, [])
 
   useEffect(() => {
     // Los más viejos primero — así la cocina atiende en el orden en que
@@ -102,11 +138,18 @@ export default function CocinaView({ nombre, onLogout }) {
                 <span className="cocina-card__hora">{formatTime(order.createdAt)}</span>
               </div>
               <div className="cocina-card__canal">{canalDe(order)}</div>
-              <ul className="cocina-card__items">
-                {itemsSummary(order).map((linea, i) => (
-                  <li key={i}>{linea}</li>
-                ))}
-              </ul>
+              {(() => {
+                const lineas = itemsSummary(order, nombresBebida)
+                return lineas.length === 0 ? (
+                  <p className="cocina-card__sin-items">Solo bebidas — nada para preparar</p>
+                ) : (
+                  <ul className="cocina-card__items">
+                    {lineas.map((linea, i) => (
+                      <li key={i}>{linea}</li>
+                    ))}
+                  </ul>
+                )
+              })()}
               <div className="cocina-card__actions">
                 {order.status === 'pending' && (
                   <button
