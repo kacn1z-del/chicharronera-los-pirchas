@@ -5,6 +5,7 @@ import { db, auth, writeAndContinue } from '../firebase'
 const STATUS_LABELS = {
   pending: { label: 'Pendiente', tone: 'amber' },
   preparing: { label: 'Preparando', tone: 'blue' },
+  listo: { label: 'Listo en cocina', tone: 'green' },
   on_the_way: { label: 'En camino', tone: 'green' },
   delivered: { label: 'Entregado', tone: 'gray' },
   cancelled: { label: 'Cancelado', tone: 'red' },
@@ -158,7 +159,7 @@ async function printReceipt(order) {
   * { box-sizing: border-box; }
   body { font-family: -apple-system, Arial, sans-serif; color: #000; padding: 3mm 2mm; width: 54mm; margin: 0 auto; }
   .center { text-align: center; }
-  h1 { font-size: 13px; margin: 2px 0; }
+  .logo { width: 100%; display: block; margin: 0 auto 4px; }
   .sub { font-size: 9px; margin-bottom: 8px; }
   .meta { font-size: 9px; margin: 2px 0; }
   .items { margin: 8px 0; padding: 6px 0; border-top: 1px dashed #000; border-bottom: 1px dashed #000; }
@@ -167,11 +168,15 @@ async function printReceipt(order) {
   .payment { font-size: 9px; text-align: center; margin-top: 3px; }
   .factura { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #000; }
   .clave { font-size: 7px; text-align: center; word-break: break-all; margin: 2px 0; }
+  .gracias { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 10px 0 6px; }
+  .gracias img { width: 15mm; height: auto; }
+  .gracias span { font-size: 10px; font-style: italic; }
+  .iconrow { width: 100%; display: block; margin-top: 6px; }
 </style>
 </head>
 <body>
   <div class="center">
-    <h1>Los Pirchas</h1>
+    <img class="logo" src="/receipt/ticket-logo.jpg" alt="Los Pirchas" />
     <p class="sub">Restaurante y Chicharronera</p>
   </div>
   <p class="meta center">${formatNumeroPedido(numeroPedido)} · ${formatTime(order.createdAt)}</p>
@@ -181,6 +186,12 @@ async function printReceipt(order) {
   <div class="total"><span>Total</span><span>${formatColones(order.total)}</span></div>
   <p class="payment">Pago: ${order.paymentMethod || '—'}</p>
   ${facturaHtml}
+  <div class="gracias">
+    <img src="/receipt/ticket-burger.jpg" alt="" />
+    <span>¡Gracias por su preferencia!</span>
+    <img src="/receipt/ticket-fries.jpg" alt="" />
+  </div>
+  <img class="iconrow" src="/receipt/ticket-iconrow.png" alt="" />
 </body>
 </html>`
 
@@ -550,7 +561,7 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
                 </td>
                 <td data-label="Acciones">
                   <div className="order-actions">
-                    {order.status !== 'preparing' && (
+                    {order.status !== 'preparing' && order.status !== 'listo' && (
                       <button
                         type="button"
                         className="action-btn action-btn--blue"
@@ -730,4 +741,3 @@ function FacturaModal({ order, onCancel, onConfirm }) {
     </div>
   )
 }
-
