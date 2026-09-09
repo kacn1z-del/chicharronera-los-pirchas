@@ -254,6 +254,7 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
   const [facturandoId, setFacturandoId] = useState(null)
   const [reenviandoId, setReenviandoId] = useState(null)
   const [facturaModalOrder, setFacturaModalOrder] = useState(null)
+  const [cobroOrder, setCobroOrder] = useState(null)
 
   useEffect(() => {
     const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'))
@@ -392,6 +393,39 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
   const facturarOrder = (order) => {
     if (order.facturaEstado === 'aceptado') return
     setFacturaModalOrder(order)
+  }
+
+  // Cobrar/cerrar un pedido con método de pago (y, si corresponde, dividido
+  // entre varias personas) — mismo resultado final que "Entregado" (status
+  // delivered + descuento de inventario), pero guardando además cómo se
+  // pagó. "datosPago" viene armado por CobroModal, ya sea:
+  //   { paymentMethod: 'efectivo' | 'sinpe' | 'tarjeta' }   — cobro simple
+  //   { paymentMethod: 'dividido', splitPayment: true, payments: [...] }  — dividido
+  const confirmarCobro = async (order, datosPago) => {
+    setCobroOrder(null)
+    setBusyId(order.id)
+    try {
+      const debeDescontar = order.status !== 'delivered' && !order.stockDescontado
+      let avisos = []
+      if (debeDescontar) {
+        avisos = await descontarInventario(order)
+      }
+      await writeAndContinue(
+        updateDoc(doc(db, 'orders', order.id), {
+          status: 'delivered',
+          ...datosPago,
+          ...(debeDescontar ? { stockDescontado: true } : {}),
+        })
+      )
+      if (avisos.length > 0) {
+        alert('⚠️ Pocas existencias tras este pedido:\n' + avisos.join('\n'))
+      }
+    } catch (err) {
+      console.error(err)
+      alert('No se pudo cobrar el pedido: ' + err.message)
+    } finally {
+      setBusyId(null)
+    }
   }
 
   const confirmarFactura = async (order, datosCliente) => {
@@ -599,6 +633,16 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
                         Entregado
                       </button>
                     )}
+                    {order.status !== 'delivered' && order.status !== 'cancelled' && (
+                      <button
+                        type="button"
+                        className="action-btn action-btn--purple"
+                        disabled={busyId === order.id}
+                        onClick={() => setCobroOrder(order)}
+                      >
+                        💳 Cobrar
+                      </button>
+                    )}
                     {order.status !== 'cancelled' && (
                       <button
                         type="button"
@@ -681,6 +725,13 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
           onConfirm={(datos) => confirmarFactura(facturaModalOrder, datos)}
         />
       )}
+      {cobroOrder && (
+        <CobroModal
+          order={cobroOrder}
+          onCancel={() => setCobroOrder(null)}
+          onConfirm={(datosPago) => confirmarCobro(cobroOrder, datosPago)}
+        />
+      )}
     </div>
   )
 }
@@ -755,6 +806,256 @@ function FacturaModal({ order, onCancel, onConfirm }) {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  )
+}
+
+// Colores por persona para distinguir a simple vista quién paga qué —
+// mismos colores que usa la app de meseros, para que sea consistente.
+const PERSONA_COLORS = ['#d9391f', '#3f9868', '#2b6cb0', '#a83279', '#b58900', '#6b46c1', '#0f9b8e', '#c2410c']
+const PAGO_OPTIONS = [
+  { key: 'efectivo', label: 'Efectivo' },
+  { key: 'sinpe', label: 'SINPE' },
+  { key: 'tarjeta', label: 'Tarjeta' },
+]
+
+// Modal de cobro: cobrar todo junto con un método de pago, o dividir la
+// cuenta asignando cada plato a una persona específica (igual que en la
+// app de meseros) y elegir el método de pago de cada una por separado.
+function CobroModal({ order, onCancel, onConfirm }) {
+  const items = order.items || []
+  const [modo, setModo] = useState('junto') // 'junto' | 'dividir'
+  const [paymentMethod, setPaymentMethod] = useState('efectivo')
+  const [personas, setPersonas] = useState([
+    { id: 1, metodo: 'efectivo' },
+    { id: 2, metodo: 'efectivo' },
+  ])
+  const [personaSeq, setPersonaSeq] = useState(2)
+  const [activePersonaId, setActivePersonaId] = useState(1)
+  const [assignments, setAssignments] = useState({}) // { [nombre]: [personaId|null, ...] }
+
+  const getAssignments = (nombre, qty) => {
+    const arr = (assignments[nombre] || []).slice(0, qty)
+    while (arr.length < qty) arr.push(null)
+    return arr
+  }
+
+  const personaTotal = (personaId) => {
+    let total = 0
+    items.forEach((it) => {
+      getAssignments(it.nombre, it.qty).forEach((pid) => {
+        if (pid === personaId) total += it.precio
+      })
+    })
+    return total
+  }
+
+  const unassignedCount = () => {
+    let count = 0
+    items.forEach((it) => {
+      getAssignments(it.nombre, it.qty).forEach((pid) => {
+        if (pid === null) count++
+      })
+    })
+    return count
+  }
+
+  const addPersona = () => {
+    if (personas.length >= 8) return
+    const seq = personaSeq + 1
+    setPersonas([...personas, { id: seq, metodo: 'efectivo' }])
+    setPersonaSeq(seq)
+    setActivePersonaId(seq)
+  }
+
+  const removePersona = (id) => {
+    if (personas.length <= 2) return
+    const nuevasAssignments = {}
+    Object.keys(assignments).forEach((nombre) => {
+      nuevasAssignments[nombre] = assignments[nombre].map((pid) => (pid === id ? null : pid))
+    })
+    const nuevasPersonas = personas.filter((p) => p.id !== id)
+    setAssignments(nuevasAssignments)
+    setPersonas(nuevasPersonas)
+    if (activePersonaId === id) setActivePersonaId(nuevasPersonas[0].id)
+  }
+
+  const setPersonaMetodo = (id, metodo) => {
+    setPersonas(personas.map((p) => (p.id === id ? { ...p, metodo } : p)))
+  }
+
+  const assignUnit = (nombre, qty, idx) => {
+    const arr = getAssignments(nombre, qty)
+    arr[idx] = arr[idx] === activePersonaId ? null : activePersonaId
+    setAssignments({ ...assignments, [nombre]: arr })
+  }
+
+  const restantes = unassignedCount()
+
+  const handleConfirmDividir = () => {
+    if (restantes > 0) return
+    const payments = personas
+      .map((p, idx) => {
+        const monto = personaTotal(p.id)
+        const itemsPersona = items
+          .map((it) => {
+            const qty = getAssignments(it.nombre, it.qty).filter((pid) => pid === p.id).length
+            return qty > 0 ? { nombre: it.nombre, precio: it.precio, qty } : null
+          })
+          .filter(Boolean)
+        return { persona: `Persona ${idx + 1}`, metodo: p.metodo, monto, items: itemsPersona }
+      })
+      .filter((p) => p.monto > 0)
+    onConfirm({ paymentMethod: 'dividido', splitPayment: true, payments })
+  }
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-card">
+        <h3>Cobrar {order.mesa ? `Mesa ${order.mesa}` : order.clientName || 'pedido'}</h3>
+        <p className="dish-form__hint">Total: {formatColones(order.total)}</p>
+
+        <div className="split-toggle">
+          <button type="button" className={modo === 'junto' ? 'active' : ''} onClick={() => setModo('junto')}>
+            Cobrar todo junto
+          </button>
+          <button type="button" className={modo === 'dividir' ? 'active' : ''} onClick={() => setModo('dividir')}>
+            Dividir entre varios
+          </button>
+        </div>
+
+        {modo === 'junto' ? (
+          <>
+            <div className="pay-row">
+              {PAGO_OPTIONS.map((p) => (
+                <button
+                  key={p.key}
+                  type="button"
+                  className={`pay-chip ${paymentMethod === p.key ? 'active' : ''}`}
+                  onClick={() => setPaymentMethod(p.key)}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <div className="dish-form__actions">
+              <button type="button" className="btn-secondary" onClick={onCancel}>
+                Cancelar
+              </button>
+              <button type="button" className="btn-primary" onClick={() => onConfirm({ paymentMethod })}>
+                Cobrar {formatColones(order.total)}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="split-hint">Elegí quién paga y tocá los platos que le tocan a esa persona.</p>
+            <div className="split-personas">
+              {personas.map((p, idx) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={`persona-chip ${activePersonaId === p.id ? 'active' : ''}`}
+                  onClick={() => setActivePersonaId(p.id)}
+                >
+                  {personas.length > 2 && (
+                    <span
+                      className="persona-chip__remove"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        removePersona(p.id)
+                      }}
+                    >
+                      ✕
+                    </span>
+                  )}
+                  <span className="p-name">
+                    <span className="p-dot" style={{ background: PERSONA_COLORS[idx % PERSONA_COLORS.length] }} />
+                    Persona {idx + 1}
+                  </span>
+                  <span className="p-total">{formatColones(personaTotal(p.id))}</span>
+                </button>
+              ))}
+              <button type="button" className="persona-add" onClick={addPersona}>
+                + Persona
+              </button>
+            </div>
+
+            {restantes > 0 && (
+              <p className="split-warning">
+                ⚠️ Faltan {restantes} unidad{restantes === 1 ? '' : 'es'} por asignar
+              </p>
+            )}
+
+            {items.map((it) => {
+              const arr = getAssignments(it.nombre, it.qty)
+              return (
+                <div key={it.nombre} className="split-item">
+                  <div className="split-item__head">
+                    <span className="name">{it.nombre}</span>
+                    <span className="price">{formatColones(it.precio)} c/u</span>
+                  </div>
+                  <div className="unit-chips">
+                    {arr.map((pid, idx) => {
+                      const pIdx = personas.findIndex((p) => p.id === pid)
+                      const color = pIdx >= 0 ? PERSONA_COLORS[pIdx % PERSONA_COLORS.length] : undefined
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          className={`unit-chip ${pid !== null ? 'assigned' : ''}`}
+                          style={pid !== null ? { background: color } : undefined}
+                          onClick={() => assignUnit(it.nombre, it.qty, idx)}
+                        >
+                          {pIdx >= 0 ? pIdx + 1 : '–'}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+
+            <div className="split-summary">
+              <div className="section-title" style={{ marginTop: 14 }}>
+                Método de pago por persona
+              </div>
+              {personas.map((p, idx) => (
+                <div key={p.id} className="persona-pay">
+                  <div className="persona-pay__row">
+                    <span className="persona-pay__name">
+                      <span className="p-dot" style={{ background: PERSONA_COLORS[idx % PERSONA_COLORS.length] }} />
+                      Persona {idx + 1}
+                    </span>
+                    <span className="persona-pay__total">{formatColones(personaTotal(p.id))}</span>
+                  </div>
+                  <div className="pay-row">
+                    {PAGO_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        className={`pay-chip ${p.metodo === opt.key ? 'active' : ''}`}
+                        onClick={() => setPersonaMetodo(p.id, opt.key)}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="dish-form__actions">
+              <button type="button" className="btn-secondary" onClick={onCancel}>
+                Cancelar
+              </button>
+              <button type="button" className="btn-primary" disabled={restantes > 0} onClick={handleConfirmDividir}>
+                Cobrar {formatColones(order.total)}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
