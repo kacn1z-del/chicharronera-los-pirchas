@@ -1621,3 +1621,254 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================================
+   Cobrar / Dividir cuenta — modal de cobro en el admin, portado
+   de la app de meseros (mismo comportamiento, adaptado a tema
+   claro para que combine con el resto del panel).
+   ============================================================ */
+
+.split-toggle {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 16px;
+  background: var(--paper-dim);
+  border: 1px solid var(--paper-dim);
+  border-radius: 12px;
+  padding: 4px;
+}
+
+.split-toggle button {
+  flex: 1;
+  padding: 10px 6px;
+  border-radius: 9px;
+  border: none;
+  background: none;
+  color: var(--ink-600);
+  font-weight: 700;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.split-toggle button.active {
+  background: linear-gradient(90deg, var(--flame-600), var(--flame-500));
+  color: #fff;
+}
+
+.section-title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-600);
+  margin: 18px 0 10px;
+}
+
+.split-hint {
+  color: var(--ink-600);
+  font-size: 12.5px;
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.split-warning {
+  color: #b45309;
+  font-size: 12.5px;
+  font-weight: 600;
+  margin: 2px 0 10px;
+}
+
+.split-personas {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.persona-chip {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 2px solid var(--paper-dim);
+  background: #fff;
+  color: var(--ink-900);
+  min-width: 84px;
+  cursor: pointer;
+}
+
+.persona-chip .p-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.persona-chip .p-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  display: inline-block;
+}
+
+.persona-chip .p-total {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-600);
+}
+
+.persona-chip.active {
+  border-color: var(--flame-500);
+  background: var(--paper);
+}
+
+.persona-chip__remove {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--paper-dim);
+  color: var(--ink-900);
+  border: 1px solid #fff;
+  font-size: 12px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.persona-add {
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px dashed var(--ink-400);
+  background: none;
+  color: var(--ink-600);
+  font-size: 12.5px;
+  font-weight: 700;
+  min-width: 84px;
+  cursor: pointer;
+}
+
+.split-item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--paper-dim);
+}
+
+.split-item__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.split-item__head .name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-900);
+}
+
+.split-item__head .price {
+  font-family: var(--font-mono);
+  color: var(--ink-600);
+  font-size: 12px;
+}
+
+.unit-chips {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.unit-chip {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid var(--paper-dim);
+  background: var(--paper);
+  color: var(--ink-600);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.unit-chip.assigned {
+  color: #fff;
+  border-color: transparent;
+}
+
+.split-summary {
+  margin-top: 16px;
+  padding-top: 4px;
+}
+
+.persona-pay {
+  margin-bottom: 14px;
+}
+
+.persona-pay__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.persona-pay__name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-900);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.persona-pay__total {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ink-900);
+}
+
+.pay-row {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0;
+  flex-wrap: wrap;
+}
+
+.pay-chip {
+  flex: 1;
+  min-width: 70px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--paper-dim);
+  background: var(--paper);
+  color: var(--ink-900);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pay-chip.active {
+  background: linear-gradient(90deg, var(--flame-600), var(--flame-500));
+  border-color: transparent;
+  color: #fff;
+}
+
+.persona-pay .pay-row {
+  margin: 0 0 4px;
+}
+
+.persona-pay .pay-chip {
+  font-size: 11.5px;
+  padding: 7px;
+}
