@@ -19,6 +19,7 @@ import CashClosingPanel from './components/CashClosingPanel'
 import PhoneOrderPanel from './components/PhoneOrderPanel'
 import StaffPanel from './components/StaffPanel'
 import CocinaView from './components/CocinaView'
+import InstallPrompt from './components/InstallPrompt'
 import './App.css'
 
 function useCollectionCount(name) {
@@ -66,13 +67,23 @@ export default function App() {
   }
 
   if (!user || !role) {
-    return <LoginScreen />
+    return (
+      <>
+        <InstallPrompt appName="Pirchas Admin" />
+        <LoginScreen />
+      </>
+    )
   }
 
   // Cocina tiene su propia pantalla dedicada, sin sidebar ni el resto del
   // panel de administración — solo pedidos pendientes/en preparación.
   if (isCocina) {
-    return <CocinaView nombre={nombre} onLogout={logout} />
+    return (
+      <>
+        <InstallPrompt appName="Pirchas Admin" />
+        <CocinaView nombre={nombre} onLogout={logout} />
+      </>
+    )
   }
 
   // "equipo" es solo para admin — si un invitado quedó parado ahí (por
@@ -82,6 +93,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
+      <InstallPrompt appName="Pirchas Admin" />
       <div className="canopy canopy--one" aria-hidden="true" />
       <div className="canopy canopy--two" aria-hidden="true" />
 
