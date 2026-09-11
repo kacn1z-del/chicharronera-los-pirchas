@@ -1,7 +1,7 @@
 {
-  "name": "Los Pirchas — Meseros",
-  "short_name": "Pirchas Meseros",
-  "description": "Toma de pedidos, cobro y cierre de mesas para meseros de Los Pirchas.",
+  "name": "Los Pirchas — Panel Admin",
+  "short_name": "Pirchas Admin",
+  "description": "Panel de administración de Los Pirchas: pedidos, repartidores y clientes en tiempo real.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
