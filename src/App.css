@@ -1025,3 +1025,42 @@
   cursor: pointer;
   flex: 0 0 auto;
 }
+
+.low-stock-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: rgba(201, 47, 28, 0.08);
+  border: 1px solid rgba(201, 47, 28, 0.3);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  margin-bottom: 20px;
+}
+
+.low-stock-banner__icon {
+  font-size: 20px;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.low-stock-banner__body {
+  flex: 1 1 auto;
+  color: var(--red-500);
+}
+
+.low-stock-banner__body strong {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--ink-900);
+}
+
+.low-stock-banner__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+
+.low-stock-banner__item {
+  display: inline-block;
+  white-space: nowrap;
+}
