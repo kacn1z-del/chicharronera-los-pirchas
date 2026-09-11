@@ -3,7 +3,7 @@
 // los datos en tiempo real de Firestore); solo deja pasar las peticiones
 // normalmente y cachea los archivos estáticos básicos para que el ícono
 // y el manifest carguen rápido incluso con mala señal.
-const CACHE = 'pirchas-v1'
+const CACHE = 'pirchas-v2'
 const ARCHIVOS_BASICOS = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png']
 
 self.addEventListener('install', (event) => {
