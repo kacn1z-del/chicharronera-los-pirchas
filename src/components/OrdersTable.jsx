@@ -175,7 +175,12 @@ async function printReceipt(order) {
 <style>
   @page { size: 58mm auto; margin: 0; }
   * { box-sizing: border-box; }
-  body { font-family: -apple-system, Arial, sans-serif; color: #000; padding: 3mm 2mm; width: 54mm; margin: 0 auto; }
+  /* 46mm en vez de 54mm: aunque el rollo mida 58mm, el cabezal de la
+     mayoría de impresoras térmicas de este tamaño solo imprime de verdad
+     unos 46-48mm de ancho. Con 54mm, cualquier cosa pegada al borde
+     derecho (como los precios alineados a la derecha) se caía fuera del
+     área imprimible real y no salía en el recibo. */
+  body { font-family: -apple-system, Arial, sans-serif; color: #000; padding: 3mm 2mm; width: 46mm; margin: 0 auto; }
   .center { text-align: center; }
   .logo { width: 100%; display: block; margin: 0 auto 4px; }
   .sub { font-size: 9px; margin-bottom: 8px; }
@@ -399,8 +404,11 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
   // entre varias personas) — mismo resultado final que "Entregado" (status
   // delivered + descuento de inventario), pero guardando además cómo se
   // pagó. "datosPago" viene armado por CobroModal, ya sea:
-  //   { paymentMethod: 'efectivo' | 'sinpe' | 'tarjeta' }   — cobro simple
-  //   { paymentMethod: 'dividido', splitPayment: true, payments: [...] }  — dividido
+  //   { paymentMethod: 'efectivo' | 'sinpe' | 'tarjeta', envioExpress }   — cobro simple
+  //   { paymentMethod: 'dividido', splitPayment: true, payments: [...], envioExpress }  — dividido
+  // "envioExpress" es el cargo adicional opcional (₡1000/₡1500/₡2000) que
+  // se elige solo para pedidos tipo "express"; se suma al total guardado
+  // para que Cierre de caja y reportes reflejen lo realmente cobrado.
   const confirmarCobro = async (order, datosPago) => {
     setCobroOrder(null)
     setBusyId(order.id)
@@ -410,11 +418,13 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
       if (debeDescontar) {
         avisos = await descontarInventario(order)
       }
+      const { envioExpress, ...restoDatosPago } = datosPago
       await writeAndContinue(
         updateDoc(doc(db, 'orders', order.id), {
           status: 'delivered',
-          ...datosPago,
+          ...restoDatosPago,
           ...(debeDescontar ? { stockDescontado: true } : {}),
+          ...(envioExpress ? { envioExpress, total: order.total + envioExpress } : {}),
           // Si el pedido tenía un cupo asignado en el plano de Salón
           // (mesa de meseros, o Express/Llevar de un pedido telefónico),
           // lo liberamos al cobrarlo para que desaparezca del plano.
@@ -823,14 +833,18 @@ const PAGO_OPTIONS = [
   { key: 'sinpe', label: 'SINPE' },
   { key: 'tarjeta', label: 'Tarjeta' },
 ]
+// Costo adicional opcional por entrega express, elegido a la hora de cobrar.
+const EXPRESS_FEE_OPTIONS = [0, 1000, 1500, 2000]
 
 // Modal de cobro: cobrar todo junto con un método de pago, o dividir la
 // cuenta asignando cada plato a una persona específica (igual que en la
 // app de meseros) y elegir el método de pago de cada una por separado.
 function CobroModal({ order, onCancel, onConfirm }) {
   const items = order.items || []
+  const isExpress = order.tipo === 'express'
   const [modo, setModo] = useState('junto') // 'junto' | 'dividir'
   const [paymentMethod, setPaymentMethod] = useState('efectivo')
+  const [expressFee, setExpressFee] = useState(0)
   const [personas, setPersonas] = useState([
     { id: 1, metodo: 'efectivo' },
     { id: 2, metodo: 'efectivo' },
@@ -845,6 +859,10 @@ function CobroModal({ order, onCancel, onConfirm }) {
     return arr
   }
 
+  // Reparto parejo del cobro adicional por express entre las personas que
+  // están pagando (solo aplica en modo "dividir").
+  const feeShare = (personas.length > 0 ? Math.round(expressFee / personas.length) : 0)
+
   const personaTotal = (personaId) => {
     let total = 0
     items.forEach((it) => {
@@ -852,6 +870,7 @@ function CobroModal({ order, onCancel, onConfirm }) {
         if (pid === personaId) total += it.precio
       })
     })
+    if (expressFee > 0) total += feeShare
     return total
   }
 
@@ -908,10 +927,11 @@ function CobroModal({ order, onCancel, onConfirm }) {
             return qty > 0 ? { nombre: it.nombre, precio: it.precio, qty } : null
           })
           .filter(Boolean)
+        if (feeShare > 0) itemsPersona.push({ nombre: 'Envío express', precio: feeShare, qty: 1 })
         return { persona: `Persona ${idx + 1}`, metodo: p.metodo, monto, items: itemsPersona }
       })
       .filter((p) => p.monto > 0)
-    onConfirm({ paymentMethod: 'dividido', splitPayment: true, payments })
+    onConfirm({ paymentMethod: 'dividido', splitPayment: true, payments, envioExpress: expressFee || null })
   }
 
   return (
@@ -919,6 +939,22 @@ function CobroModal({ order, onCancel, onConfirm }) {
       <div className="modal-card">
         <h3>Cobrar {order.mesa ? `Mesa ${order.mesa}` : order.clientName || 'pedido'}</h3>
         <p className="dish-form__hint">Total: {formatColones(order.total)}</p>
+
+        {isExpress && (
+          <div className="pay-row" style={{ marginTop: 4 }}>
+            <span className="dish-form__hint" style={{ width: '100%' }}>Cobro adicional por express</span>
+            {EXPRESS_FEE_OPTIONS.map((fee) => (
+              <button
+                key={fee}
+                type="button"
+                className={`pay-chip ${expressFee === fee ? 'active' : ''}`}
+                onClick={() => setExpressFee(fee)}
+              >
+                {fee === 0 ? 'Sin cargo' : formatColones(fee)}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="split-toggle">
           <button type="button" className={modo === 'junto' ? 'active' : ''} onClick={() => setModo('junto')}>
@@ -947,8 +983,12 @@ function CobroModal({ order, onCancel, onConfirm }) {
               <button type="button" className="btn-secondary" onClick={onCancel}>
                 Cancelar
               </button>
-              <button type="button" className="btn-primary" onClick={() => onConfirm({ paymentMethod })}>
-                Cobrar {formatColones(order.total)}
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => onConfirm({ paymentMethod, envioExpress: expressFee || null })}
+              >
+                Cobrar {formatColones(order.total + expressFee)}
               </button>
             </div>
           </>
@@ -1055,7 +1095,7 @@ function CobroModal({ order, onCancel, onConfirm }) {
                 Cancelar
               </button>
               <button type="button" className="btn-primary" disabled={restantes > 0} onClick={handleConfirmDividir}>
-                Cobrar {formatColones(order.total)}
+                Cobrar {formatColones(order.total + expressFee)}
               </button>
             </div>
           </>
