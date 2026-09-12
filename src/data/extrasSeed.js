@@ -22,6 +22,13 @@ export const EXTRAS_SEED = [
   { nombre: 'Expresso americano', categoria: 'Café', precio: 3000 },
   { nombre: 'Expresso cortado', categoria: 'Café', precio: 3000 },
   { nombre: 'Expresso maquiato', categoria: 'Café', precio: 2500 },
+  { nombre: 'Chocolate caliente', categoria: 'Café', precio: 2000 },
+
+  // Otras Especialidades
+  { nombre: 'Tuétano', categoria: 'Otras Especialidades', precio: 3000 },
+
+  // Entradas calientes
+  { nombre: 'Mozzarella sticks familiar (6 personas)', categoria: 'Entradas calientes', precio: 8000 },
 
   // Adicionales
   { nombre: 'Adicional de arroz', categoria: 'Adicionales', precio: 1000 },
