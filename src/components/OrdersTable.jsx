@@ -147,9 +147,9 @@ async function printReceipt(order) {
     const itemsHtml = (order.items || [])
       .map(
         (item) =>
-          `<div class="row"><span>${item.qty} × ${item.nombre}</span><span>${formatColones(
+          `<tr><td>${item.qty} × ${item.nombre}</td><td class="price">${formatColones(
             item.precio * item.qty
-          )}</span></div>`
+          )}</td></tr>`
       )
       .join('')
 
@@ -186,8 +186,14 @@ async function printReceipt(order) {
   .sub { font-size: 9px; margin-bottom: 8px; }
   .meta { font-size: 9px; margin: 2px 0; }
   .items { margin: 8px 0; padding: 6px 0; border-top: 1px dashed #000; border-bottom: 1px dashed #000; }
-  .row { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px; gap: 4px; }
-  .total { display: flex; justify-content: space-between; font-weight: 700; font-size: 12px; margin-bottom: 3px; }
+  /* Tabla en vez de flexbox: algunos motores de impresión térmica (vía
+     AirPrint) no soportan bien CSS Flexbox y simplemente descartan la
+     columna de precio sin avisar. Las tablas HTML las soporta prácticamente
+     cualquier motor de impresión, por viejo o limitado que sea. */
+  .items table, .total table { width: 100%; border-collapse: collapse; }
+  .items td { font-size: 10px; padding: 0 0 3px; vertical-align: top; }
+  .total td { font-weight: 700; font-size: 12px; padding: 0; }
+  td.price { text-align: right; white-space: nowrap; padding-left: 4px; }
   .payment { font-size: 9px; text-align: center; margin-top: 3px; }
   .factura { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #000; }
   .clave { font-size: 7px; text-align: center; word-break: break-all; margin: 2px 0; }
@@ -205,8 +211,8 @@ async function printReceipt(order) {
   <p class="meta center">${formatNumeroPedido(numeroPedido)} · ${formatTime(order.createdAt)}</p>
   <p class="meta center">${order.clientName || order.mesa || ''}${order.clientPhone ? ' · ' + order.clientPhone : ''}</p>
   ${order.clientAddress ? `<p class="meta center">${order.clientAddress}</p>` : ''}
-  <div class="items">${itemsHtml}</div>
-  <div class="total"><span>Total</span><span>${formatColones(order.total)}</span></div>
+  <div class="items"><table><tbody>${itemsHtml}</tbody></table></div>
+  <div class="total"><table><tr><td>Total</td><td class="price">${formatColones(order.total)}</td></tr></table></div>
   <p class="payment">Pago: ${order.paymentMethod || '—'}</p>
   ${facturaHtml}
   <div class="gracias">
