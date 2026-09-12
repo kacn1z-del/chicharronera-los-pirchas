@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from './firebase'
 import { useAuth } from './hooks/useAuth'
+import useNewOrderSound from './hooks/useNewOrderSound'
 import LoginScreen from './components/LoginScreen'
 import Sidebar from './components/Sidebar'
 import TopBar from './components/TopBar'
@@ -41,6 +42,10 @@ export default function App() {
   const [firestoreConnected, setFirestoreConnected] = useState(true)
   const [browserOnline, setBrowserOnline] = useState(navigator.onLine)
   const [showPhoneOrder, setShowPhoneOrder] = useState(false)
+
+  // Suena una campanita en cualquier pantalla del panel (Resumen, Salón,
+  // Pedidos, Cocina, etc.) cada vez que entra un pedido nuevo a Firestore.
+  useNewOrderSound(!!user && !!role)
 
   useEffect(() => {
     const goOnline = () => setBrowserOnline(true)
