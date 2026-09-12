@@ -415,6 +415,10 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
           status: 'delivered',
           ...datosPago,
           ...(debeDescontar ? { stockDescontado: true } : {}),
+          // Si el pedido tenía un cupo asignado en el plano de Salón
+          // (mesa de meseros, o Express/Llevar de un pedido telefónico),
+          // lo liberamos al cobrarlo para que desaparezca del plano.
+          mesaAbierta: false,
         })
       )
       if (avisos.length > 0) {
