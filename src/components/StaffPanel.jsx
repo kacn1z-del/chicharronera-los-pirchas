@@ -26,6 +26,32 @@ export default function StaffPanel() {
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState(null)
   const [cambiandoRolId, setCambiandoRolId] = useState(null)
+  const [cambiandoPassId, setCambiandoPassId] = useState(null)
+
+  const cambiarPassword = async (member) => {
+    const nueva = window.prompt(`Nueva contraseña para ${member.nombre} (mínimo 6 caracteres):`)
+    if (!nueva) return
+    if (nueva.length < 6) {
+      alert('La contraseña debe tener al menos 6 caracteres.')
+      return
+    }
+    setCambiandoPassId(member.id)
+    try {
+      const idToken = await auth.currentUser.getIdToken()
+      const res = await fetch('/api/cambiar-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ uid: member.id, password: nueva }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'No se pudo cambiar la contraseña')
+      alert(`Contraseña de ${member.nombre} actualizada.`)
+    } catch (err) {
+      alert('No se pudo cambiar la contraseña: ' + err.message)
+    } finally {
+      setCambiandoPassId(null)
+    }
+  }
 
   const cambiarRol = async (member, nuevoRol) => {
     if (nuevoRol === member.rol) return
@@ -143,6 +169,7 @@ export default function StaffPanel() {
               <th>Usuario</th>
               <th>Rol</th>
               <th>Cambiar rol</th>
+              <th>Contraseña</th>
             </tr>
           </thead>
           <tbody>
@@ -165,6 +192,16 @@ export default function StaffPanel() {
                     <option value="cocina">Cocina</option>
                     <option value="admin">Administrador</option>
                   </select>
+                </td>
+                <td data-label="Contraseña">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    disabled={cambiandoPassId === s.id}
+                    onClick={() => cambiarPassword(s)}
+                  >
+                    {cambiandoPassId === s.id ? 'Cambiando…' : 'Cambiar contraseña'}
+                  </button>
                 </td>
               </tr>
             ))}
