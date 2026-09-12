@@ -840,7 +840,7 @@ const PAGO_OPTIONS = [
   { key: 'tarjeta', label: 'Tarjeta' },
 ]
 // Costo adicional opcional por entrega express, elegido a la hora de cobrar.
-const EXPRESS_FEE_OPTIONS = [0, 1000, 1500, 2000]
+const EXPRESS_FEE_OPTIONS = [0, 500, 1000, 1500, 2000, 2500]
 
 // Modal de cobro: cobrar todo junto con un método de pago, o dividir la
 // cuenta asignando cada plato a una persona específica (igual que en la
