@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { collection, doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore'
+import { collection, doc, onSnapshot, query, serverTimestamp, setDoc, where } from 'firebase/firestore'
 import { db, writeAndContinue } from '../firebase'
+
+const EXPRESS_SLOTS = ['Express 1', 'Express 2', 'Express 3']
+const LLEVAR_SLOTS = ['Llevar 1', 'Llevar 2', 'Llevar 3']
 
 const PAYMENT_OPTIONS = [
   { key: 'efectivo', label: 'Efectivo' },
@@ -47,6 +50,15 @@ export default function PhoneOrderPanel({ onCreated, onCancel }) {
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [busyMesas, setBusyMesas] = useState([])
+
+  useEffect(() => {
+    const q = query(collection(db, 'orders'), where('mesaAbierta', '==', true))
+    const unsub = onSnapshot(q, (snap) => {
+      setBusyMesas(snap.docs.map((d) => d.data().mesa).filter(Boolean))
+    })
+    return () => unsub()
+  }, [])
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'Menu'), (snap) => {
@@ -93,6 +105,15 @@ export default function PhoneOrderPanel({ onCreated, onCancel }) {
     setSaving(true)
     setError(null)
     try {
+      // Le asignamos un cupo fijo del plano de salón ("Express 1/2/3" para
+      // domicilio, "Llevar 1/2/3" para recoge en local) para que aparezca
+      // en la pantalla de Salón, igual que una mesa. Si los 3 cupos de ese
+      // tipo ya están ocupados, el pedido se guarda igual (se puede cobrar
+      // desde "Todos los pedidos") pero no se le asigna cupo en el plano.
+      const tipo = entrega === 'domicilio' ? 'express' : 'llevar'
+      const slots = tipo === 'express' ? EXPRESS_SLOTS : LLEVAR_SLOTS
+      const mesaAsignada = slots.find((s) => !busyMesas.includes(s)) || null
+
       const newRef = doc(collection(db, 'orders'))
       const { queued } = await writeAndContinue(
         setDoc(newRef, {
@@ -101,16 +122,23 @@ export default function PhoneOrderPanel({ onCreated, onCancel }) {
           clientAddress: entrega === 'domicilio' ? clientAddress.trim() : null,
           restaurantName: 'Los Pirchas',
           origen: 'telefono',
-          tipo: entrega === 'domicilio' ? 'express' : 'llevar',
+          tipo,
           items: cart,
           total,
           paymentMethod,
           notes: notes.trim() || null,
           status: 'pending',
           cierreId: null,
+          mesa: mesaAsignada,
+          mesaAbierta: !!mesaAsignada,
           createdAt: serverTimestamp(),
         })
       )
+      if (!mesaAsignada) {
+        alert(
+          `Los 3 cupos de "${tipo === 'express' ? 'Express' : 'Llevar'}" ya están ocupados. El pedido se guardó pero no va a salir en el plano de Salón — se puede ver y cobrar desde "Todos los pedidos".`
+        )
+      }
       setCart([])
       setClientName('')
       setClientPhone('')
