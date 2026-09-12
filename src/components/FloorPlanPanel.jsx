@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { db } from '../firebase'
 
@@ -18,7 +19,7 @@ const FLOOR_GROUPS = [
   },
   { row: 'mid', clusters: [['21', '23', '25', '27']] },
   { row: 'mid', clusters: [['22', '24', '26', '28']] },
-  { row: 'bottom', clusters: [['Llevar 1', 'Llevar 2', 'Express 1', 'Express 2', 'Express 3']] },
+  { row: 'bottom', clusters: [['Llevar 1', 'Llevar 2', 'Llevar 3', 'Express 1', 'Express 2', 'Express 3']] },
 ]
 
 const fmt = (v) => `₡${Number(v ?? 0).toLocaleString('es-CR')}`
@@ -117,7 +118,7 @@ export default function FloorPlanPanel() {
     )
   }
 
-  return (
+  const content = (
     <div className={`panel floor-plan-panel ${fullscreen ? 'fp-fullscreen' : ''}`}>
       <div className="fp-legend">
         <span><i className="free" />Libre</span>
@@ -175,4 +176,13 @@ export default function FloorPlanPanel() {
       )}
     </div>
   )
+
+  // En modo pantalla completa dibujamos el panel directo en <body> con un
+  // portal. Es necesario porque .app-main ya crea su propio "contexto de
+  // apilamiento" (position: relative + z-index) — cualquier z-index que le
+  // pongamos aquí adentro queda atrapado compitiendo solo dentro de ese
+  // contexto y nunca logra superar al sidebar (que vive en otro contexto,
+  // un nivel más arriba). Sacándolo por portal, el panel escapa de esa
+  // jerarquía y sí puede cubrir todo, sidebar incluido.
+  return fullscreen ? createPortal(content, document.body) : content
 }
