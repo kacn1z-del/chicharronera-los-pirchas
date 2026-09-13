@@ -22,6 +22,7 @@ const PAYMENT_LABELS = {
   sinpe: 'SINPE',
   tarjeta: 'Tarjeta',
   dividido: 'Dividido',
+  mixto: 'Mixto',
 }
 
 function formatColones(value) {
@@ -37,11 +38,19 @@ function formatDateTime(ts) {
 
 // Suma cada pedido por método de pago. Si el pedido se cobró dividido entre
 // varias personas (app de meseros), reparte el total entre los métodos reales
-// usados en cada parte en vez de contarlo todo como "dividido".
+// usados en cada parte en vez de contarlo todo como "dividido". Si se cobró
+// con pago mixto (una sola cuenta repartida entre efectivo/tarjeta/SINPE),
+// reparte igual entre esos tres en vez de contarlo todo como "mixto".
 function addToPaymentTotals(totals, order) {
   if (order.splitPayment && Array.isArray(order.payments)) {
     order.payments.forEach((p) => {
       totals[p.metodo] = (totals[p.metodo] || 0) + Number(p.monto || 0)
+    })
+    return
+  }
+  if (order.mixedPayment && order.montos) {
+    Object.entries(order.montos).forEach(([metodo, monto]) => {
+      if (Number(monto) > 0) totals[metodo] = (totals[metodo] || 0) + Number(monto)
     })
     return
   }
