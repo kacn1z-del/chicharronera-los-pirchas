@@ -1,19 +1,20 @@
 import { useState } from 'react'
-import { collection, getDocs, writeBatch, doc, deleteDoc } from 'firebase/firestore'
+import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore'
 import { db } from '../firebase'
-import { MENU_SEED } from '../data/menuSeed'
-import { BOCAS_SEED } from '../data/bocasSeed'
-import { EXTRAS_SEED } from '../data/extrasSeed'
-import { BEBIDAS_SEED } from '../data/bebidasSeed'
-import { BATIDOS_SEED } from '../data/batidosSeed'
 
+// Ya se usaron los botones de importación masiva (menú, Noche de Bocas,
+// Órdenes/Café/Adicionales, bebidas, sabores de batido) — se quitaron para
+// no dejarlos tentando a re-importar por accidente y duplicar el menú.
+// Solo quedan dos herramientas de mantenimiento: ver cuántos platos hay y
+// limpiar duplicados si algo se llega a repetir alguna vez.
 export default function MenuImportPanel() {
-  const [status, setStatus] = useState('idle') // idle | checking | importing | cleaning | done | error
+  const [status, setStatus] = useState('idle') // idle | checking | cleaning | done | error
   const [message, setMessage] = useState('')
   const [existingCount, setExistingCount] = useState(null)
 
   const checkExisting = async () => {
     setStatus('checking')
+    setMessage('')
     try {
       const snap = await getDocs(collection(db, 'Menu'))
       setExistingCount(snap.size)
@@ -21,107 +22,6 @@ export default function MenuImportPanel() {
     } catch (err) {
       setMessage(err.message)
       setStatus('error')
-    }
-  }
-
-  const handleImport = async () => {
-    setStatus('importing')
-    setMessage('')
-    try {
-      // Firestore permite hasta 500 escrituras por batch — el menú entra en uno solo
-      const batch = writeBatch(db)
-      const menuRef = collection(db, 'Menu')
-      MENU_SEED.forEach((item) => {
-        const newDoc = doc(menuRef)
-        batch.set(newDoc, { ...item, disponible: true })
-      })
-      await batch.commit()
-      setStatus('done')
-      setMessage(`Se importaron ${MENU_SEED.length} platos correctamente.`)
-      setExistingCount((prev) => (prev ?? 0) + MENU_SEED.length)
-    } catch (err) {
-      setStatus('error')
-      setMessage(err.message)
-    }
-  }
-
-  const handleImportBocas = async () => {
-    setStatus('importing')
-    setMessage('')
-    try {
-      const batch = writeBatch(db)
-      const menuRef = collection(db, 'Menu')
-      BOCAS_SEED.forEach((item) => {
-        const newDoc = doc(menuRef)
-        batch.set(newDoc, { ...item, disponible: true })
-      })
-      await batch.commit()
-      setStatus('done')
-      setMessage(`Se importaron ${BOCAS_SEED.length} platos de Noche de Bocas.`)
-      setExistingCount((prev) => (prev ?? 0) + BOCAS_SEED.length)
-    } catch (err) {
-      setStatus('error')
-      setMessage(err.message)
-    }
-  }
-
-  const handleImportExtras = async () => {
-    setStatus('importing')
-    setMessage('')
-    try {
-      const batch = writeBatch(db)
-      const menuRef = collection(db, 'Menu')
-      EXTRAS_SEED.forEach((item) => {
-        const newDoc = doc(menuRef)
-        batch.set(newDoc, { ...item, disponible: true })
-      })
-      await batch.commit()
-      setStatus('done')
-      setMessage(`Se importaron ${EXTRAS_SEED.length} platos de Órdenes, Café y Adicionales.`)
-      setExistingCount((prev) => (prev ?? 0) + EXTRAS_SEED.length)
-    } catch (err) {
-      setStatus('error')
-      setMessage(err.message)
-    }
-  }
-
-  const handleImportBebidas = async () => {
-    setStatus('importing')
-    setMessage('')
-    try {
-      const batch = writeBatch(db)
-      const menuRef = collection(db, 'Menu')
-      BEBIDAS_SEED.forEach((item) => {
-        const newDoc = doc(menuRef)
-        batch.set(newDoc, { ...item, disponible: true })
-      })
-      await batch.commit()
-      setStatus('done')
-      setMessage(`Se importaron ${BEBIDAS_SEED.length} ítems de cervezas, licores, helados, gaseosas, jugos y smoothies.`)
-      setExistingCount((prev) => (prev ?? 0) + BEBIDAS_SEED.length)
-    } catch (err) {
-      setStatus('error')
-      setMessage(err.message)
-    }
-  }
-
-  const handleImportBatidos = async () => {
-    setStatus('importing')
-    setMessage('')
-    try {
-      const batch = writeBatch(db)
-      const menuRef = collection(db, 'Menu')
-      BATIDOS_SEED.forEach((item) => {
-        const newDoc = doc(menuRef)
-        batch.set(newDoc, { ...item, disponible: true })
-      })
-      await batch.commit()
-      setStatus('done')
-      setMessage(`Se importaron ${BATIDOS_SEED.length} sabores de batido (agua y leche).`)
-      setExistingCount((prev) => (prev ?? 0) + BATIDOS_SEED.length)
-    } catch (err) {
-      setStatus('error')
-      setMessage(err.message)
     }
   }
 
@@ -163,11 +63,7 @@ export default function MenuImportPanel() {
   return (
     <div className="panel import-panel">
       <div className="import-panel__body">
-        <h3>Importar menú completo</h3>
-        <p className="import-panel__hint">
-          Carga los {MENU_SEED.length} platos del menú de Los Pirchas a la colección{' '}
-          <span className="mono">Menu</span> de una sola vez.
-        </p>
+        <h3>Mantenimiento del menú</h3>
 
         {existingCount !== null && (
           <p className="import-panel__count">
@@ -182,78 +78,10 @@ export default function MenuImportPanel() {
           <button className="btn-secondary" onClick={checkExisting} disabled={status === 'checking'}>
             {status === 'checking' ? 'Revisando…' : 'Ver cuántos platos hay'}
           </button>
-          <button className="btn-primary" onClick={handleImport} disabled={status === 'importing'}>
-            {status === 'importing' ? 'Importando…' : 'Importar menú ahora'}
-          </button>
-          <button
-            className="btn-secondary"
-            onClick={handleCleanDuplicates}
-            disabled={status === 'cleaning'}
-          >
+          <button className="btn-secondary" onClick={handleCleanDuplicates} disabled={status === 'cleaning'}>
             {status === 'cleaning' ? 'Limpiando…' : 'Eliminar duplicados'}
           </button>
         </div>
-
-        {existingCount > 0 && (
-          <p className="import-panel__warning">
-            ⚠️ Si tocás "Importar menú ahora" más de una vez, se duplican los platos. Si eso pasa, usá el
-            botón "Eliminar duplicados" — conserva un solo plato de cada combinación
-            nombre + categoría + precio y borra el resto.
-          </p>
-        )}
-      </div>
-
-      <div className="import-panel__divider" />
-
-      <div className="import-panel__body">
-        <h3>Importar "Noche de Bocas"</h3>
-        <p className="import-panel__hint">
-          Menú especial de {BOCAS_SEED.length} bocas — lunes a jueves, 5:00 p.m. a 10:00 p.m., solo consumo
-          en el restaurante. Este botón NO toca el menú principal, solo agrega estos platos nuevos.
-        </p>
-        <button className="btn-primary" onClick={handleImportBocas} disabled={status === 'importing'}>
-          {status === 'importing' ? 'Importando…' : 'Importar Noche de Bocas'}
-        </button>
-      </div>
-      <div className="import-panel__divider" />
-
-      <div className="import-panel__body">
-        <h3>Importar Órdenes, Café y Adicionales</h3>
-        <p className="import-panel__hint">
-          Agrega {EXTRAS_SEED.length} ítems (acompañamientos sueltos, cafés y adicionales) transcritos del
-          sistema viejo. No toca el menú principal, solo agrega estos platos nuevos.
-        </p>
-        <button className="btn-primary" onClick={handleImportExtras} disabled={status === 'importing'}>
-          {status === 'importing' ? 'Importando…' : 'Importar Órdenes/Café/Adicionales'}
-        </button>
-      </div>
-
-      <div className="import-panel__divider" />
-
-      <div className="import-panel__body">
-        <h3>Importar cervezas, licores, helados, gaseosas, jugos y smoothies</h3>
-        <p className="import-panel__hint">
-          Agrega {BEBIDAS_SEED.length} ítems transcritos del sistema viejo. No toca el menú principal, solo
-          agrega estos platos nuevos.
-        </p>
-        <button className="btn-primary" onClick={handleImportBebidas} disabled={status === 'importing'}>
-          {status === 'importing' ? 'Importando…' : 'Importar bebidas y helados'}
-        </button>
-      </div>
-
-      <div className="import-panel__divider" />
-
-      <div className="import-panel__body">
-        <h3>Importar sabores de batido (agua y leche)</h3>
-        <p className="import-panel__hint">
-          Agrega {BATIDOS_SEED.length} platos: cada uno de los 14 sabores como "Batido en agua de..." y
-          "Batido en leche de..." por separado, en vez de un solo plato genérico. Después de importar,
-          borrá manualmente los dos platos viejos "Batido en agua" y "Batido en leche" (los genéricos) desde
-          Editar → Borrar, para no dejarlos duplicados.
-        </p>
-        <button className="btn-primary" onClick={handleImportBatidos} disabled={status === 'importing'}>
-          {status === 'importing' ? 'Importando…' : 'Importar sabores de batido'}
-        </button>
       </div>
     </div>
   )
