@@ -848,9 +848,12 @@ const EXPRESS_FEE_OPTIONS = [0, 500, 1000, 1500, 2000, 2500]
 function CobroModal({ order, onCancel, onConfirm }) {
   const items = order.items || []
   const isExpress = order.tipo === 'express'
-  const [modo, setModo] = useState('junto') // 'junto' | 'dividir'
+  const [modo, setModo] = useState('junto') // 'junto' | 'mixto' | 'dividir'
   const [paymentMethod, setPaymentMethod] = useState('efectivo')
-  const [expressFee, setExpressFee] = useState(0)
+  const [expressFees, setExpressFees] = useState([]) // montos de cargo express seleccionados (se suman)
+  const [montoEfectivo, setMontoEfectivo] = useState('')
+  const [montoTarjeta, setMontoTarjeta] = useState('')
+  const [montoSinpe, setMontoSinpe] = useState('')
   const [personas, setPersonas] = useState([
     { id: 1, metodo: 'efectivo' },
     { id: 2, metodo: 'efectivo' },
@@ -864,6 +867,24 @@ function CobroModal({ order, onCancel, onConfirm }) {
     while (arr.length < qty) arr.push(null)
     return arr
   }
+
+  // El cargo por express es la suma de todos los montos que el mesero/admin
+  // haya seleccionado (se puede combinar más de una casilla, ej. ₡2.000 +
+  // ₡500 = ₡2.500 de una vez).
+  const expressFee = expressFees.reduce((sum, fee) => sum + fee, 0)
+  const toggleExpressFee = (fee) => {
+    setExpressFees((prev) => (prev.includes(fee) ? prev.filter((f) => f !== fee) : [...prev, fee]))
+  }
+
+  // Total real a cobrar (incluye el cargo express si aplica) — se usa en
+  // los tres modos de cobro.
+  const totalACobrar = order.total + expressFee
+
+  // Pago mixto: el cliente paga la misma cuenta repartida entre efectivo,
+  // tarjeta y SINPE al mismo tiempo (ej. ₡5.000 efectivo + ₡10.000 tarjeta
+  // + ₡5.000 SINPE = ₡20.000). Los tres montos deben sumar exacto el total.
+  const sumaMixta = (Number(montoEfectivo) || 0) + (Number(montoTarjeta) || 0) + (Number(montoSinpe) || 0)
+  const faltanteMixto = totalACobrar - sumaMixta
 
   // Reparto parejo del cobro adicional por express entre las personas que
   // están pagando (solo aplica en modo "dividir").
@@ -940,6 +961,16 @@ function CobroModal({ order, onCancel, onConfirm }) {
     onConfirm({ paymentMethod: 'dividido', splitPayment: true, payments, envioExpress: expressFee || null })
   }
 
+  const handleConfirmMixto = () => {
+    if (faltanteMixto !== 0) return
+    const montos = {
+      efectivo: Number(montoEfectivo) || 0,
+      tarjeta: Number(montoTarjeta) || 0,
+      sinpe: Number(montoSinpe) || 0,
+    }
+    onConfirm({ paymentMethod: 'mixto', mixedPayment: true, montos, envioExpress: expressFee || null })
+  }
+
   return (
     <div className="modal-overlay">
       <div className="modal-card">
@@ -948,23 +979,44 @@ function CobroModal({ order, onCancel, onConfirm }) {
 
         {isExpress && (
           <div className="pay-row" style={{ marginTop: 4 }}>
-            <span className="dish-form__hint" style={{ width: '100%' }}>Cobro adicional por express</span>
-            {EXPRESS_FEE_OPTIONS.map((fee) => (
-              <button
-                key={fee}
-                type="button"
-                className={`pay-chip ${expressFee === fee ? 'active' : ''}`}
-                onClick={() => setExpressFee(fee)}
-              >
-                {fee === 0 ? 'Sin cargo' : formatColones(fee)}
-              </button>
-            ))}
+            <span className="dish-form__hint" style={{ width: '100%' }}>
+              Cobro adicional por express (podés marcar varias)
+            </span>
+            {EXPRESS_FEE_OPTIONS.map((fee) =>
+              fee === 0 ? (
+                <button
+                  key={fee}
+                  type="button"
+                  className={`pay-chip ${expressFees.length === 0 ? 'active' : ''}`}
+                  onClick={() => setExpressFees([])}
+                >
+                  Sin cargo
+                </button>
+              ) : (
+                <button
+                  key={fee}
+                  type="button"
+                  className={`pay-chip ${expressFees.includes(fee) ? 'active' : ''}`}
+                  onClick={() => toggleExpressFee(fee)}
+                >
+                  {formatColones(fee)}
+                </button>
+              )
+            )}
+            {expressFee > 0 && (
+              <span className="dish-form__hint" style={{ width: '100%' }}>
+                Total del cargo: {formatColones(expressFee)}
+              </span>
+            )}
           </div>
         )}
 
         <div className="split-toggle">
           <button type="button" className={modo === 'junto' ? 'active' : ''} onClick={() => setModo('junto')}>
             Cobrar todo junto
+          </button>
+          <button type="button" className={modo === 'mixto' ? 'active' : ''} onClick={() => setModo('mixto')}>
+            Pago mixto
           </button>
           <button type="button" className={modo === 'dividir' ? 'active' : ''} onClick={() => setModo('dividir')}>
             Dividir entre varios
@@ -994,7 +1046,64 @@ function CobroModal({ order, onCancel, onConfirm }) {
                 className="btn-primary"
                 onClick={() => onConfirm({ paymentMethod, envioExpress: expressFee || null })}
               >
-                Cobrar {formatColones(order.total + expressFee)}
+                Cobrar {formatColones(totalACobrar)}
+              </button>
+            </div>
+          </>
+        ) : modo === 'mixto' ? (
+          <>
+            <div className="dish-form" style={{ marginTop: 4 }}>
+              <label>
+                Efectivo
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  value={montoEfectivo}
+                  onChange={(e) => setMontoEfectivo(e.target.value)}
+                  placeholder="0"
+                />
+              </label>
+              <label>
+                Tarjeta
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  value={montoTarjeta}
+                  onChange={(e) => setMontoTarjeta(e.target.value)}
+                  placeholder="0"
+                />
+              </label>
+              <label>
+                SINPE
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  value={montoSinpe}
+                  onChange={(e) => setMontoSinpe(e.target.value)}
+                  placeholder="0"
+                />
+              </label>
+            </div>
+            <p className="dish-form__hint">
+              Suma: {formatColones(sumaMixta)} de {formatColones(totalACobrar)}
+              {faltanteMixto > 0 && ` — falta ${formatColones(faltanteMixto)}`}
+              {faltanteMixto < 0 && ` — sobra ${formatColones(-faltanteMixto)}`}
+              {faltanteMixto === 0 && ' — ✓ cuadra'}
+            </p>
+            <div className="dish-form__actions">
+              <button type="button" className="btn-secondary" onClick={onCancel}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={faltanteMixto !== 0}
+                onClick={handleConfirmMixto}
+              >
+                Cobrar {formatColones(totalACobrar)}
               </button>
             </div>
           </>
@@ -1101,7 +1210,7 @@ function CobroModal({ order, onCancel, onConfirm }) {
                 Cancelar
               </button>
               <button type="button" className="btn-primary" disabled={restantes > 0} onClick={handleConfirmDividir}>
-                Cobrar {formatColones(order.total + expressFee)}
+                Cobrar {formatColones(totalACobrar)}
               </button>
             </div>
           </>
