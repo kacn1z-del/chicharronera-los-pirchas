@@ -5,6 +5,7 @@ import { MENU_SEED } from '../data/menuSeed'
 import { BOCAS_SEED } from '../data/bocasSeed'
 import { EXTRAS_SEED } from '../data/extrasSeed'
 import { BEBIDAS_SEED } from '../data/bebidasSeed'
+import { BATIDOS_SEED } from '../data/batidosSeed'
 
 export default function MenuImportPanel() {
   const [status, setStatus] = useState('idle') // idle | checking | importing | cleaning | done | error
@@ -98,6 +99,26 @@ export default function MenuImportPanel() {
       setStatus('done')
       setMessage(`Se importaron ${BEBIDAS_SEED.length} ítems de cervezas, licores, helados, gaseosas, jugos y smoothies.`)
       setExistingCount((prev) => (prev ?? 0) + BEBIDAS_SEED.length)
+    } catch (err) {
+      setStatus('error')
+      setMessage(err.message)
+    }
+  }
+
+  const handleImportBatidos = async () => {
+    setStatus('importing')
+    setMessage('')
+    try {
+      const batch = writeBatch(db)
+      const menuRef = collection(db, 'Menu')
+      BATIDOS_SEED.forEach((item) => {
+        const newDoc = doc(menuRef)
+        batch.set(newDoc, { ...item, disponible: true })
+      })
+      await batch.commit()
+      setStatus('done')
+      setMessage(`Se importaron ${BATIDOS_SEED.length} sabores de batido (agua y leche).`)
+      setExistingCount((prev) => (prev ?? 0) + BATIDOS_SEED.length)
     } catch (err) {
       setStatus('error')
       setMessage(err.message)
@@ -217,6 +238,21 @@ export default function MenuImportPanel() {
         </p>
         <button className="btn-primary" onClick={handleImportBebidas} disabled={status === 'importing'}>
           {status === 'importing' ? 'Importando…' : 'Importar bebidas y helados'}
+        </button>
+      </div>
+
+      <div className="import-panel__divider" />
+
+      <div className="import-panel__body">
+        <h3>Importar sabores de batido (agua y leche)</h3>
+        <p className="import-panel__hint">
+          Agrega {BATIDOS_SEED.length} platos: cada uno de los 14 sabores como "Batido en agua de..." y
+          "Batido en leche de..." por separado, en vez de un solo plato genérico. Después de importar,
+          borrá manualmente los dos platos viejos "Batido en agua" y "Batido en leche" (los genéricos) desde
+          Editar → Borrar, para no dejarlos duplicados.
+        </p>
+        <button className="btn-primary" onClick={handleImportBatidos} disabled={status === 'importing'}>
+          {status === 'importing' ? 'Importando…' : 'Importar sabores de batido'}
         </button>
       </div>
     </div>
