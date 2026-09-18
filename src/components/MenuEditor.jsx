@@ -8,7 +8,7 @@ function formatColones(value) {
 }
 
 function emptyDraft() {
-  return { nombre: '', categoria: '', precio: '', descripcion: '', imagenUrl: '', disponible: true, receta: [] }
+  return { nombre: '', categoria: '', subcategoria: '', precio: '', descripcion: '', imagenUrl: '', disponible: true, receta: [] }
 }
 
 export default function MenuEditor({ isAdmin = false }) {
@@ -52,6 +52,7 @@ export default function MenuEditor({ isAdmin = false }) {
     setDraft({
       nombre: item.nombre || '',
       categoria: item.categoria || '',
+      subcategoria: item.subcategoria || '',
       precio: item.precio ?? '',
       descripcion: item.descripcion || '',
       imagenUrl: item.imagenUrl || '',
@@ -75,6 +76,7 @@ export default function MenuEditor({ isAdmin = false }) {
   const buildPayload = () => ({
     nombre: draft.nombre.trim(),
     categoria: draft.categoria.trim(),
+    subcategoria: draft.subcategoria.trim() || null,
     precio: Number(draft.precio) || 0,
     descripcion: draft.descripcion.trim() || null,
     imagenUrl: draft.imagenUrl.trim() || null,
@@ -185,6 +187,7 @@ export default function MenuEditor({ isAdmin = false }) {
             <tr>
               <th>Plato</th>
               <th>Categoría</th>
+              <th>Subcategoría</th>
               <th>Precio</th>
               <th>Estado</th>
               <th></th>
@@ -194,7 +197,7 @@ export default function MenuEditor({ isAdmin = false }) {
             {sorted.map((item) =>
               isAdmin && editingId === item.id ? (
                 <tr key={item.id}>
-                  <td colSpan={5}>
+                  <td colSpan={6}>
                     <DishForm
                       draft={draft}
                       setDraft={setDraft}
@@ -217,6 +220,7 @@ export default function MenuEditor({ isAdmin = false }) {
                     )}
                   </td>
                   <td data-label="Categoría">{item.categoria}</td>
+                  <td data-label="Subcategoría">{item.subcategoria || '—'}</td>
                   <td data-label="Precio" className="mono">{formatColones(item.precio)}</td>
                   <td data-label="Estado">
                     {isAdmin ? (
@@ -321,6 +325,12 @@ function DishForm({ draft, setDraft, onCancel, onSave, saving, saveLabel, invent
         <label>
           Categoría
           <input value={draft.categoria} onChange={set('categoria')} placeholder="Ej: Casados" />
+        </label>
+      </div>
+      <div className="dish-form__row">
+        <label>
+          Subcategoría (opcional)
+          <input value={draft.subcategoria} onChange={set('subcategoria')} placeholder="Ej: Café" />
         </label>
       </div>
       <div className="dish-form__row">
