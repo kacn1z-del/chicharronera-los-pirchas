@@ -1,16 +1,17 @@
 import { useState } from 'react'
 import { collection, getDocs, deleteDoc, doc, addDoc, query, where, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
-import { RESTRUCTURACION_SEED } from '../data/restructuracionSeed'
+import { RESTRUCTURACION_SEED, REEMPLAZOS_SEED } from '../data/restructuracionSeed'
 
 // Ya se usaron los botones de importación masiva (menú, Noche de Bocas,
 // Órdenes/Café/Adicionales, bebidas, sabores de batido) — se quitaron para
 // no dejarlos tentando a re-importar por accidente y duplicar el menú.
 //
 // TEMPORAL: se agregaron botones para la reestructuración de menú (Órdenes,
-// Café, Postres, Menú de café nuevos + limpieza de Adicionales/Smoothies +
-// renombrar Helados a Postres). Una vez usados, quitar este bloque igual que
-// se hizo con los anteriores para no dejarlos tentando a re-importar.
+// Café, Postres, Menú de café nuevos + renombrar ítems existentes al texto
+// exacto del cliente + limpieza de Adicionales/Smoothies + renombrar
+// Helados a Postres). Una vez usados, quitar este bloque igual que se hizo
+// con los anteriores para no dejarlos tentando a re-importar.
 export default function MenuImportPanel() {
   const [status, setStatus] = useState('idle') // idle | checking | cleaning | importing | done | error
   const [message, setMessage] = useState('')
@@ -65,7 +66,7 @@ export default function MenuImportPanel() {
     }
   }
 
-  // TEMPORAL — importa los ítems nuevos de Órdenes, Café, Postres y Menú de café
+  // TEMPORAL — importa los ítems nuevos de Órdenes, Postres, Café y Menú de café
   const handleImportRestructuracion = async () => {
     setStatus('importing')
     setMessage('')
@@ -75,6 +76,40 @@ export default function MenuImportPanel() {
       )
       setStatus('done')
       setMessage(`Se importaron ${RESTRUCTURACION_SEED.length} platos nuevos.`)
+    } catch (err) {
+      setStatus('error')
+      setMessage(err.message)
+    }
+  }
+
+  // TEMPORAL — renombra ítems existentes al texto exacto que dio el cliente
+  // (evita duplicar platos que ya estaban con otro nombre)
+  const handleRenombrarExactos = async () => {
+    setStatus('cleaning')
+    setMessage('')
+    try {
+      let totalRenombrados = 0
+      const notas = []
+
+      for (const { viejo, nuevo } of REEMPLAZOS_SEED) {
+        const q = query(collection(db, 'Menu'), where('nombre', '==', viejo))
+        const snap = await getDocs(q)
+
+        if (snap.empty) {
+          notas.push(`"${viejo}" no se encontró.`)
+          continue
+        }
+
+        await Promise.all(
+          snap.docs.map((docSnap) => updateDoc(doc(db, 'Menu', docSnap.id), { nombre: nuevo }))
+        )
+        totalRenombrados += snap.size
+      }
+
+      setStatus('done')
+      setMessage(
+        `Se renombraron ${totalRenombrados} platos.` + (notas.length ? ` ${notas.join(' ')}` : '')
+      )
     } catch (err) {
       setStatus('error')
       setMessage(err.message)
@@ -188,6 +223,9 @@ export default function MenuImportPanel() {
         <div className="import-panel__actions">
           <button className="btn-primary" onClick={handleImportRestructuracion} disabled={status === 'importing'}>
             {status === 'importing' ? 'Importando…' : `Importar ${RESTRUCTURACION_SEED.length} platos nuevos`}
+          </button>
+          <button className="btn-secondary" onClick={handleRenombrarExactos} disabled={status === 'cleaning'}>
+            Renombrar existentes al texto del cliente
           </button>
           <button className="btn-secondary" onClick={handleRenameHeladosAPostres} disabled={status === 'cleaning'}>
             Renombrar Helados → Postres
