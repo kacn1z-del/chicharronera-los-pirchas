@@ -60,3 +60,13 @@ export const REEMPLAZOS_SEED = [
   { viejo: 'Expresso maquiato', nuevo: 'Espresso machiato' },
   { viejo: 'Chocolate caliente', nuevo: 'Chocolate' },
 ]
+
+// Órdenes que ya existían en Firestore (del sistema de punto de venta viejo,
+// extrasSeed.js) pero que el cliente NO incluyó en su lista final — hay que
+// quitarlas para que "Órdenes" quede solo con lo que él pasó.
+export const ORDENES_A_ELIMINAR = [
+  'Orden de frijol con doraditas',
+  'Orden papas en gajo',
+  'Orden familiar patacones',
+  'Orden frijoles',
+]
