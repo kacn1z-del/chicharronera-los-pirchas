@@ -3,6 +3,7 @@ import { collection, deleteDoc, doc, onSnapshot, orderBy, query, runTransaction,
 import { db, writeAndContinue } from '../firebase'
 
 const STATUS_LABELS = {
+  pending_approval: { label: 'Pendiente de aprobación', tone: 'red' },
   pending: { label: 'Pendiente', tone: 'amber' },
   preparing: { label: 'Preparando', tone: 'blue' },
   listo: { label: 'Listo en cocina', tone: 'green' },
@@ -605,7 +606,17 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
                 </td>
                 <td data-label="Acciones">
                   <div className="order-actions">
-                    {order.status !== 'preparing' && order.status !== 'listo' && (
+                    {order.status === 'pending_approval' && (
+                      <button
+                        type="button"
+                        className="action-btn action-btn--green"
+                        disabled={busyId === order.id}
+                        onClick={() => setStatus(order.id, 'pending')}
+                      >
+                        ✔️ Aprobar pedido
+                      </button>
+                    )}
+                    {order.status !== 'pending_approval' && order.status !== 'preparing' && order.status !== 'listo' && (
                       <button
                         type="button"
                         className="action-btn action-btn--blue"
@@ -615,7 +626,7 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
                         Preparando
                       </button>
                     )}
-                    {order.status !== 'delivered' && (
+                    {order.status !== 'pending_approval' && order.status !== 'delivered' && (
                       <button
                         type="button"
                         className="action-btn action-btn--green"
@@ -625,7 +636,7 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
                         Entregado
                       </button>
                     )}
-                    {order.status !== 'delivered' && order.status !== 'cancelled' && (
+                    {order.status !== 'pending_approval' && order.status !== 'delivered' && order.status !== 'cancelled' && (
                       <button
                         type="button"
                         className="action-btn action-btn--purple"
