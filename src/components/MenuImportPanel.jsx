@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { collection, getDocs, deleteDoc, doc, addDoc, query, where, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
-import { RESTRUCTURACION_SEED, REEMPLAZOS_SEED, ORDENES_A_ELIMINAR } from '../data/restructuracionSeed'
+import { RESTRUCTURACION_SEED, REEMPLAZOS_SEED, ORDENES_A_ELIMINAR, BEBIDAS_CALIENTES_MIGRACION } from '../data/restructuracionSeed'
 
 // Ya se usaron los botones de importación masiva (menú, Noche de Bocas,
 // Órdenes/Café/Adicionales, bebidas, sabores de batido) — se quitaron para
@@ -109,6 +109,42 @@ export default function MenuImportPanel() {
       setStatus('done')
       setMessage(
         `Se renombraron ${totalRenombrados} platos.` + (notas.length ? ` ${notas.join(' ')}` : '')
+      )
+    } catch (err) {
+      setStatus('error')
+      setMessage(err.message)
+    }
+  }
+
+  // TEMPORAL — migra la categoría plana "Café" a "Bebidas calientes" con
+  // 4 subcategorías (Café, Té, Aguadulce, Chocolate)
+  const handleMigrarBebidasCalientes = async () => {
+    setStatus('cleaning')
+    setMessage('')
+    try {
+      let totalMigrados = 0
+      const notas = []
+
+      for (const { nombre, subcategoria } of BEBIDAS_CALIENTES_MIGRACION) {
+        const q = query(collection(db, 'Menu'), where('nombre', '==', nombre))
+        const snap = await getDocs(q)
+
+        if (snap.empty) {
+          notas.push(`"${nombre}" no se encontró.`)
+          continue
+        }
+
+        await Promise.all(
+          snap.docs.map((docSnap) =>
+            updateDoc(doc(db, 'Menu', docSnap.id), { categoria: 'Bebidas calientes', subcategoria })
+          )
+        )
+        totalMigrados += snap.size
+      }
+
+      setStatus('done')
+      setMessage(
+        `Se migraron ${totalMigrados} platos a "Bebidas calientes".` + (notas.length ? ` ${notas.join(' ')}` : '')
       )
     } catch (err) {
       setStatus('error')
@@ -258,6 +294,9 @@ export default function MenuImportPanel() {
           </button>
           <button className="btn-secondary" onClick={handleRenombrarExactos} disabled={status === 'cleaning'}>
             Renombrar existentes al texto del cliente
+          </button>
+          <button className="btn-secondary" onClick={handleMigrarBebidasCalientes} disabled={status === 'cleaning'}>
+            Migrar Café → Bebidas calientes (con subcategorías)
           </button>
           <button className="btn-secondary" onClick={handleEliminarOrdenesViejas} disabled={status === 'cleaning'}>
             Eliminar Órdenes viejas no listadas
