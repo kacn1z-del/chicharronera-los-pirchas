@@ -70,3 +70,24 @@ export const ORDENES_A_ELIMINAR = [
   'Orden familiar patacones',
   'Orden frijoles',
 ]
+
+// Migración de la categoría plana "Café" a "Bebidas calientes" con 4
+// subcategorías (Café, Té, Aguadulce, Chocolate), pedido por audio del
+// cliente. Correr DESPUÉS de "Importar 28 platos nuevos" (para que existan
+// Mokaccino/Capuchino/Latte/Aguadulce/Té) y DESPUÉS de "Renombrar
+// existentes al texto del cliente" (para que Espresso/Chocolate ya tengan
+// el nombre correcto).
+export const BEBIDAS_CALIENTES_MIGRACION = [
+  { nombre: 'Café frío', subcategoria: 'Café' },
+  { nombre: 'Café con leche', subcategoria: 'Café' },
+  { nombre: 'Café negro', subcategoria: 'Café' },
+  { nombre: 'Espresso machiato', subcategoria: 'Café' },
+  { nombre: 'Espresso cortado', subcategoria: 'Café' },
+  { nombre: 'Espresso americano', subcategoria: 'Café' },
+  { nombre: 'Mokaccino', subcategoria: 'Café' },
+  { nombre: 'Capuchino', subcategoria: 'Café' },
+  { nombre: 'Latte', subcategoria: 'Café' },
+  { nombre: 'Té', subcategoria: 'Té' },
+  { nombre: 'Aguadulce', subcategoria: 'Aguadulce' },
+  { nombre: 'Chocolate', subcategoria: 'Chocolate' },
+]
