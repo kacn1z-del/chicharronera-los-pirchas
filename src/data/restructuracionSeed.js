@@ -91,3 +91,23 @@ export const BEBIDAS_CALIENTES_MIGRACION = [
   { nombre: 'Aguadulce', subcategoria: 'Aguadulce' },
   { nombre: 'Chocolate', subcategoria: 'Chocolate' },
 ]
+
+// Migración de los 28 sabores de batido (14 en agua + 14 en leche), que
+// hoy viven mezclados bajo la categoría genérica "Bebidas" (importados por
+// batidosSeed.js), a sus propias categorías "Batidos en agua" y "Batidos
+// en leche". Mismos sabores/nombres exactos que batidosSeed.js.
+const SABORES_BATIDO = [
+  'fresa', 'maracuyá', 'papaya', 'mora', 'sandía', 'mango', 'melón',
+  'piña', 'cas', 'guanábana', 'crema', 'horchata', 'pinolillo', 'resbaladera',
+]
+
+export const BATIDOS_CATEGORIA_MIGRACION = [
+  ...SABORES_BATIDO.map((sabor) => ({
+    nombre: `Batido en agua de ${sabor}`,
+    categoria: 'Batidos en agua',
+  })),
+  ...SABORES_BATIDO.map((sabor) => ({
+    nombre: `Batido en leche de ${sabor}`,
+    categoria: 'Batidos en leche',
+  })),
+]
