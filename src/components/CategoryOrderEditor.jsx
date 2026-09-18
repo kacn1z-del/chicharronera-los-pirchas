@@ -24,22 +24,31 @@ export default function CategoryOrderEditor() {
   const [order, setOrder] = useState([])
   const [status, setStatus] = useState('idle') // idle | saving | saved | error
   const [message, setMessage] = useState('')
+  const [loadError, setLoadError] = useState(null)
   const initialized = useRef(false)
 
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'Menu'), (snap) => {
-      const cats = [...new Set(snap.docs.map((d) => d.data().categoria).filter(Boolean))]
-      setCategoriasActuales(cats)
-      setCatsLoaded(true)
-    })
+    const unsub = onSnapshot(
+      collection(db, 'Menu'),
+      (snap) => {
+        const cats = [...new Set(snap.docs.map((d) => d.data().categoria).filter(Boolean))]
+        setCategoriasActuales(cats)
+        setCatsLoaded(true)
+      },
+      (err) => setLoadError(`Error leyendo Menu: ${err.message}`)
+    )
     return () => unsub()
   }, [])
 
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'Config', CONFIG_DOC), (snap) => {
-      setSavedOrder(snap.exists() && Array.isArray(snap.data().orden) ? snap.data().orden : [])
-      setSavedLoaded(true)
-    })
+    const unsub = onSnapshot(
+      doc(db, 'Config', CONFIG_DOC),
+      (snap) => {
+        setSavedOrder(snap.exists() && Array.isArray(snap.data().orden) ? snap.data().orden : [])
+        setSavedLoaded(true)
+      },
+      (err) => setLoadError(`Error leyendo Config/${CONFIG_DOC}: ${err.message}`)
+    )
     return () => unsub()
   }, [])
 
@@ -81,6 +90,17 @@ export default function CategoryOrderEditor() {
       setStatus('error')
       setMessage(err.message)
     }
+  }
+
+  if (loadError) {
+    return (
+      <div className="panel panel--empty">
+        <p>{loadError}</p>
+        <p className="dish-form__hint">
+          Probablemente falta permiso en las reglas de Firestore para leer/escribir la colección "Config".
+        </p>
+      </div>
+    )
   }
 
   if (!catsLoaded || !savedLoaded) {
