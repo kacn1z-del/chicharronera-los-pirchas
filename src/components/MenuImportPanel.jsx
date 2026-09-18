@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { collection, getDocs, deleteDoc, doc, addDoc, query, where, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
-import { RESTRUCTURACION_SEED, REEMPLAZOS_SEED } from '../data/restructuracionSeed'
+import { RESTRUCTURACION_SEED, REEMPLAZOS_SEED, ORDENES_A_ELIMINAR } from '../data/restructuracionSeed'
 
 // Ya se usaron los botones de importación masiva (menú, Noche de Bocas,
 // Órdenes/Café/Adicionales, bebidas, sabores de batido) — se quitaron para
@@ -110,6 +110,38 @@ export default function MenuImportPanel() {
       setMessage(
         `Se renombraron ${totalRenombrados} platos.` + (notas.length ? ` ${notas.join(' ')}` : '')
       )
+    } catch (err) {
+      setStatus('error')
+      setMessage(err.message)
+    }
+  }
+
+  // TEMPORAL — elimina las Órdenes viejas que el cliente no incluyó en su lista final
+  const handleEliminarOrdenesViejas = async () => {
+    setStatus('cleaning')
+    setMessage('')
+    try {
+      let totalEliminados = 0
+      const notas = []
+
+      for (const nombre of ORDENES_A_ELIMINAR) {
+        const q = query(collection(db, 'Menu'), where('nombre', '==', nombre))
+        const snap = await getDocs(q)
+
+        if (snap.empty) {
+          notas.push(`"${nombre}" no se encontró.`)
+          continue
+        }
+
+        await Promise.all(snap.docs.map((docSnap) => deleteDoc(doc(db, 'Menu', docSnap.id))))
+        totalEliminados += snap.size
+      }
+
+      setStatus('done')
+      setMessage(
+        `Se eliminaron ${totalEliminados} platos de Órdenes.` + (notas.length ? ` ${notas.join(' ')}` : '')
+      )
+      setExistingCount((prev) => (prev ?? totalEliminados) - totalEliminados)
     } catch (err) {
       setStatus('error')
       setMessage(err.message)
@@ -226,6 +258,9 @@ export default function MenuImportPanel() {
           </button>
           <button className="btn-secondary" onClick={handleRenombrarExactos} disabled={status === 'cleaning'}>
             Renombrar existentes al texto del cliente
+          </button>
+          <button className="btn-secondary" onClick={handleEliminarOrdenesViejas} disabled={status === 'cleaning'}>
+            Eliminar Órdenes viejas no listadas
           </button>
           <button className="btn-secondary" onClick={handleRenameHeladosAPostres} disabled={status === 'cleaning'}>
             Renombrar Helados → Postres
