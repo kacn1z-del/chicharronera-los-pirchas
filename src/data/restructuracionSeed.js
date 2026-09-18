@@ -49,6 +49,8 @@ export const RESTRUCTURACION_SEED = [
 // cliente esta vez. En vez de duplicarlos, se renombran para que el texto
 // quede exactamente como lo pidió el cliente (no se toca el precio).
 export const REEMPLAZOS_SEED = [
+  { viejo: 'Mozzarella sticks', nuevo: 'Mozzarella richs' },
+  { viejo: 'Mozzarella sticks (infantil)', nuevo: 'Mozzarella richs (infantil)' },
   { viejo: 'Orden de frijol molido', nuevo: 'Orden frijoles molidos' },
   { viejo: 'Orden jalapeño', nuevo: 'Orden de jalapeños' },
   { viejo: 'Orden tortillas', nuevo: 'Orden de tortillas' },
