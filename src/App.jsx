@@ -12,6 +12,7 @@ import RestaurantsPanel from './components/RestaurantsPanel'
 import RidersPanel from './components/RidersPanel'
 import UsersPanel from './components/UsersPanel'
 import MenuImportPanel from './components/MenuImportPanel'
+import CategoryOrderEditor from './components/CategoryOrderEditor'
 import MenuEditor from './components/MenuEditor'
 import InventoryPanel from './components/InventoryPanel'
 import LowStockBanner from './components/LowStockBanner'
@@ -207,6 +208,8 @@ export default function App() {
                 </p>
               )}
               {isAdmin && <MenuImportPanel />}
+              {isAdmin && <div style={{ height: '20px' }} />}
+              {isAdmin && <CategoryOrderEditor />}
               {isAdmin && <div style={{ height: '20px' }} />}
               <MenuEditor isAdmin={isAdmin} />
             </section>
