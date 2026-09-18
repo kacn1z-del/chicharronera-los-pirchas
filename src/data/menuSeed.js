@@ -9,7 +9,7 @@ export const MENU_SEED = [
   { nombre: 'Patacones', categoria: 'Entradas calientes', precio: 2700 },
   { nombre: 'Dados de queso', categoria: 'Entradas calientes', precio: 3000 },
   { nombre: 'Aros de cebolla', categoria: 'Entradas calientes', precio: 4000 },
-  { nombre: 'Mozzarella sticks', categoria: 'Entradas calientes', precio: 4000 },
+  { nombre: 'Mozzarella richs', categoria: 'Entradas calientes', precio: 4000 },
 
   // Arroces (acompañamientos: ensalada verde, papas fritas, frijoles molidos)
   { nombre: 'Arroz con cerdo', categoria: 'Arroces', precio: 4500, descripcion: 'Incluye ensalada verde, papas fritas y frijoles molidos.' },
@@ -37,7 +37,7 @@ export const MENU_SEED = [
   { nombre: 'Nuggets de pollo (infantil)', categoria: 'Menú infantil', precio: 4000 },
   { nombre: 'Hamburguesa con papas (infantil)', categoria: 'Menú infantil', precio: 4000 },
   { nombre: 'Dados de queso (infantil)', categoria: 'Menú infantil', precio: 4000 },
-  { nombre: 'Mozzarella sticks (infantil)', categoria: 'Menú infantil', precio: 4000 },
+  { nombre: 'Mozzarella richs (infantil)', categoria: 'Menú infantil', precio: 4000 },
 
   // Especialidades Mexicanas
   { nombre: 'Tacos de birria', categoria: 'Especialidades Mexicanas', precio: 6000 },
