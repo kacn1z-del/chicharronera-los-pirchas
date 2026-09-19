@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { collection, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
+import { asegurarNumeroPedido, formatNumeroPedido } from '../lib/pedidoNumero'
 
 // Pantalla dedicada para la cocina (tablet compartida). Solo muestra los
 // pedidos que todavía no están listos — pendientes o en preparación — y dos
@@ -14,10 +15,12 @@ import { db } from '../firebase'
 
 // A cocina no le interesan las bebidas (no las prepara) — se ocultan de la
 // lista de items para que la tarjeta muestre solo lo que sí hay que cocinar.
+// Cubre las 4 categorías de bebidas que existen hoy en el menú (después de
+// la reestructuración: antes todo vivía bajo una sola categoría "Bebidas").
 // El pedido en sí guarda solo nombre/precio/cantidad, no la categoría, así
 // que para saber cuáles son bebidas hay que cruzar contra la colección
 // "Menu" (donde sí vive el campo "categoria").
-const CATEGORIAS_SIN_COCINA = ['bebidas']
+const CATEGORIAS_SIN_COCINA = ['bebidas', 'bebidas calientes', 'batidos en agua', 'batidos en leche']
 
 function normalizar(text) {
   return (text || '')
@@ -87,8 +90,18 @@ export default function CocinaView({ nombre, onLogout }) {
       q,
       (snap) => {
         const todos = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-        setOrders(todos.filter((o) => o.status === 'pending' || o.status === 'preparing'))
+        const pendientes = todos.filter((o) => o.status === 'pending' || o.status === 'preparing')
+        setOrders(pendientes)
         setLoading(false)
+
+        // Antes el número de pedido solo se asignaba al imprimir en el
+        // admin (a veces bien después de que cocina ya lo preparó). Acá se
+        // le asigna apenas cocina lo ve por primera vez, para que llegue
+        // numerado — asegurarNumeroPedido no hace nada si el pedido ya
+        // tiene número, así que es seguro llamarlo en cada snapshot.
+        pendientes.filter((o) => !o.numeroPedido).forEach((o) => {
+          asegurarNumeroPedido(o).catch((err) => console.error('No se pudo numerar el pedido:', err))
+        })
       },
       (err) => {
         setError(err.message)
@@ -134,6 +147,9 @@ export default function CocinaView({ nombre, onLogout }) {
               <div className="cocina-card__top">
                 <span className="cocina-card__cliente">
                   {order.mesa ? `Mesa ${order.mesa}` : order.clientName || 'Pedido telefónico'}
+                  {order.numeroPedido && (
+                    <span className="cocina-card__numero"> · {formatNumeroPedido(order.numeroPedido)}</span>
+                  )}
                 </span>
                 <span className="cocina-card__hora">{formatTime(order.createdAt)}</span>
               </div>
