@@ -1585,6 +1585,13 @@
   color: var(--ink-900);
 }
 
+.cocina-card__numero {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-400);
+}
+
 .cocina-card__hora {
   font-family: var(--font-mono);
   font-size: 14px;
