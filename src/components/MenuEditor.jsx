@@ -1,7 +1,30 @@
 import { useEffect, useState } from 'react'
 import { collection, deleteDoc, doc, onSnapshot, updateDoc, addDoc } from 'firebase/firestore'
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { db, storage } from '../firebase'
+import { db } from '../firebase'
+
+// Subida de imágenes vía Cloudinary (unsigned upload) — reemplaza a Firebase
+// Storage, que requiere el plan de pago (Blaze) para activarse. El preset
+// "lospirchasmenu" ya está configurado como "Unsigned" en la cuenta de
+// Cloudinary, así que no hace falta firma ni backend propio.
+const CLOUDINARY_CLOUD_NAME = 'kyhdlu4q'
+const CLOUDINARY_UPLOAD_PRESET = 'lospirchasmenu'
+
+async function subirACloudinary(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET)
+
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+    method: 'POST',
+    body: formData,
+  })
+
+  const data = await res.json()
+  if (!res.ok) {
+    throw new Error(data?.error?.message || 'No se pudo subir la imagen a Cloudinary.')
+  }
+  return data.secure_url
+}
 
 function formatColones(value) {
   return `₡${Number(value ?? 0).toLocaleString('es-CR')}`
@@ -273,10 +296,7 @@ function DishForm({ draft, setDraft, onCancel, onSave, saving, saveLabel, invent
     setUploading(true)
     setUploadError(null)
     try {
-      const path = `menu/${Date.now()}-${file.name}`
-      const fileRef = ref(storage, path)
-      await uploadBytes(fileRef, file)
-      const url = await getDownloadURL(fileRef)
+      const url = await subirACloudinary(file)
       setDraft((d) => ({ ...d, imagenUrl: url }))
     } catch (err) {
       setUploadError(err.message)
