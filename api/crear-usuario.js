@@ -109,8 +109,8 @@ export default async function handler(req, res) {
   if (!usuario || !nombre || !password || !rol) {
     return res.status(400).json({ error: 'Faltan datos (usuario, nombre, password, rol)' })
   }
-  if (!['admin', 'invitado', 'cocina'].includes(rol)) {
-    return res.status(400).json({ error: 'El rol debe ser "admin", "invitado" o "cocina"' })
+  if (!['admin', 'invitado', 'cocina', 'bebidas'].includes(rol)) {
+    return res.status(400).json({ error: 'El rol debe ser "admin", "invitado", "cocina" o "bebidas"' })
   }
   if (password.length < 6) {
     return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' })
