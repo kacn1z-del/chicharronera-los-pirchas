@@ -21,6 +21,7 @@ import CashClosingPanel from './components/CashClosingPanel'
 import PhoneOrderPanel from './components/PhoneOrderPanel'
 import StaffPanel from './components/StaffPanel'
 import CocinaView from './components/CocinaView'
+import BebidasView from './components/BebidasView'
 import InstallPrompt from './components/InstallPrompt'
 import './App.css'
 
@@ -38,7 +39,7 @@ function useCollectionCount(name) {
 }
 
 export default function App() {
-  const { user, role, nombre, loading, isAdmin, isCocina, logout } = useAuth()
+  const { user, role, nombre, loading, isAdmin, isCocina, isBebidas, logout } = useAuth()
   const [section, setSection] = useState('resumen')
   const [firestoreConnected, setFirestoreConnected] = useState(true)
   const [browserOnline, setBrowserOnline] = useState(navigator.onLine)
@@ -82,12 +83,23 @@ export default function App() {
   }
 
   // Cocina tiene su propia pantalla dedicada, sin sidebar ni el resto del
-  // panel de administración — solo pedidos pendientes/en preparación.
+  // panel de administración — solo pedidos con comida pendiente.
   if (isCocina) {
     return (
       <>
         <InstallPrompt appName="Pirchas Admin" />
         <CocinaView nombre={nombre} onLogout={logout} />
+      </>
+    )
+  }
+
+  // Bebidas es la pantalla hermana de cocina, para lo mismo pero con las
+  // bebidas — igual de dedicada, sin sidebar ni el resto del panel.
+  if (isBebidas) {
+    return (
+      <>
+        <InstallPrompt appName="Pirchas Admin" />
+        <BebidasView nombre={nombre} onLogout={logout} />
       </>
     )
   }
