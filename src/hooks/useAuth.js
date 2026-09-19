@@ -9,8 +9,10 @@ import { auth, db } from '../firebase'
 //   'invitado' — mesero (Roselle): ver pedidos, cobrarlos, crear pedidos
 //                telefónicos y hacer cierres de caja, pero no eliminar
 //                pedidos ni editar menú/inventario.
-//   'cocina'   — pantalla de cocina: solo ve pedidos pendientes/en
-//                preparación y los marca "Preparado", nada más.
+//   'cocina'   — pantalla de cocina: solo ve pedidos con comida pendiente y
+//                los marca "Preparado", nada más.
+//   'bebidas'  — pantalla hermana de cocina, pero para bebidas: solo ve
+//                pedidos con bebida pendiente y los marca "Preparado".
 export function useAuth() {
   const [user, setUser] = useState(null)
   const [role, setRole] = useState(null)
@@ -48,11 +50,12 @@ export function useAuth() {
 
   return {
     user,
-    role, // 'admin' | 'invitado' | 'cocina' | null (null mientras carga o si no tiene perfil de staff)
+    role, // 'admin' | 'invitado' | 'cocina' | 'bebidas' | null (null mientras carga o si no tiene perfil de staff)
     nombre,
     loading,
     isAdmin: role === 'admin',
     isCocina: role === 'cocina',
+    isBebidas: role === 'bebidas',
     logout: () => signOut(auth),
   }
 }
