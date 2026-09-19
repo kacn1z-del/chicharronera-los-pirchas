@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { collection, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { asegurarNumeroPedido, formatNumeroPedido } from '../lib/pedidoNumero'
-import { CATEGORIAS_BEBIDA, normalizarTexto } from '../lib/categoriasBebida'
+import { esCategoriaBebida, normalizarTexto } from '../lib/categoriasBebida'
 
 // Pantalla hermana de CocinaView, pero para bebidas: solo muestra las
 // RONDAS de pedido que todavía tienen alguna bebida pendiente de preparar.
@@ -25,7 +25,7 @@ import { CATEGORIAS_BEBIDA, normalizarTexto } from '../lib/categoriasBebida'
 // simple, menos margen de error con las manos ocupadas.
 
 function esBebidaItem(item, nombresBebida) {
-  if (item.categoria) return CATEGORIAS_BEBIDA.includes(normalizarTexto(item.categoria))
+  if (item.categoria) return esCategoriaBebida(item.categoria)
   return nombresBebida.has(normalizarTexto(item.nombre))
 }
 
@@ -66,7 +66,7 @@ export default function BebidasView({ nombre, onLogout }) {
       const bebidas = new Set()
       snap.docs.forEach((d) => {
         const item = d.data()
-        if (CATEGORIAS_BEBIDA.includes(normalizarTexto(item.categoria))) {
+        if (esCategoriaBebida(item.categoria)) {
           bebidas.add(normalizarTexto(item.nombre))
         }
       })
