@@ -89,7 +89,7 @@ export default function PhoneOrderPanel({ onCreated, onCancel }) {
       if (existing) {
         return prev.map((i) => (i.nombre === menuItem.nombre ? { ...i, qty: i.qty + 1 } : i))
       }
-      return [...prev, { nombre: menuItem.nombre, precio: menuItem.precio, qty: 1 }]
+      return [...prev, { nombre: menuItem.nombre, precio: menuItem.precio, categoria: menuItem.categoria || null, qty: 1 }]
     })
   }
 
