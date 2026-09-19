@@ -153,6 +153,13 @@ async function printReceipt(order) {
           )}</td></tr>`
       )
       .join('')
+    // Mismo criterio que en la factura electrónica (lib/build-tiquete.js):
+    // el cargo de envío express se desglosa como su propia línea, en vez de
+    // quedar escondido dentro del total.
+    const expressHtml =
+      order.envioExpress > 0
+        ? `<tr><td>1 × Servicio de entrega express</td><td class="price">${formatColones(order.envioExpress)}</td></tr>`
+        : ''
 
     // Si ya está facturado ante Hacienda, el recibo incluye los datos del
     // comprobante electrónico (clave, consecutivo, resolución) — igual que
@@ -176,31 +183,34 @@ async function printReceipt(order) {
 <style>
   @page { size: 58mm auto; margin: 0; }
   * { box-sizing: border-box; }
-  /* 46mm en vez de 54mm: aunque el rollo mida 58mm, el cabezal de la
-     mayoría de impresoras térmicas de este tamaño solo imprime de verdad
-     unos 46-48mm de ancho. Con 54mm, cualquier cosa pegada al borde
-     derecho (como los precios alineados a la derecha) se caía fuera del
-     área imprimible real y no salía en el recibo. */
-  body { font-family: -apple-system, Arial, sans-serif; color: #000; padding: 3mm 2mm; width: 46mm; margin: 0 auto; }
+  /* 48mm y pegado al borde izquierdo (margin: 0, no "0 auto"): aunque el
+     rollo mida 58mm, el cabezal de la mayoría de impresoras térmicas de
+     este tamaño solo imprime de verdad unos 46-48mm de ancho, y esa área
+     imprimible arranca desde el borde izquierdo del rollo — no está
+     centrada. Con "margin: 0 auto" el bloque quedaba centrado dentro de
+     los 58mm declarados, así que se corría hacia la derecha y el borde
+     derecho (los precios) se cortaba. Pegándolo a la izquierda entra
+     completo dentro del área que la impresora sí imprime. */
+  body { font-family: -apple-system, Arial, sans-serif; color: #000; padding: 3mm 1mm 3mm 2mm; width: 48mm; margin: 0; }
   .center { text-align: center; }
   .logo { width: 100%; display: block; margin: 0 auto 4px; }
-  .sub { font-size: 9px; margin-bottom: 8px; }
-  .meta { font-size: 9px; margin: 2px 0; }
+  .sub { font-size: 10px; margin-bottom: 8px; }
+  .meta { font-size: 10px; margin: 2px 0; }
   .items { margin: 8px 0; padding: 6px 0; border-top: 1px dashed #000; border-bottom: 1px dashed #000; }
   /* Tabla en vez de flexbox: algunos motores de impresión térmica (vía
      AirPrint) no soportan bien CSS Flexbox y simplemente descartan la
      columna de precio sin avisar. Las tablas HTML las soporta prácticamente
      cualquier motor de impresión, por viejo o limitado que sea. */
   .items table, .total table { width: 100%; border-collapse: collapse; }
-  .items td { font-size: 10px; padding: 0 0 3px; vertical-align: top; }
-  .total td { font-weight: 700; font-size: 12px; padding: 0; }
+  .items td { font-size: 11px; padding: 0 0 3px; vertical-align: top; }
+  .total td { font-weight: 700; font-size: 13px; padding: 0; }
   td.price { text-align: right; white-space: nowrap; padding-left: 4px; }
-  .payment { font-size: 9px; text-align: center; margin-top: 3px; }
+  .payment { font-size: 10px; text-align: center; margin-top: 3px; }
   .factura { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #000; }
-  .clave { font-size: 7px; text-align: center; word-break: break-all; margin: 2px 0; }
+  .clave { font-size: 8px; text-align: center; word-break: break-all; margin: 2px 0; }
   .gracias { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 10px 0 6px; }
   .gracias img { width: 15mm; height: auto; }
-  .gracias span { font-size: 10px; font-style: italic; }
+  .gracias span { font-size: 11px; font-style: italic; }
   .iconrow { width: 100%; display: block; margin-top: 6px; }
 </style>
 </head>
@@ -212,7 +222,7 @@ async function printReceipt(order) {
   <p class="meta center">${formatNumeroPedido(numeroPedido)} · ${formatTime(order.createdAt)}</p>
   <p class="meta center">${order.clientName || order.mesa || ''}${order.clientPhone ? ' · ' + order.clientPhone : ''}</p>
   ${order.clientAddress ? `<p class="meta center">${order.clientAddress}</p>` : ''}
-  <div class="items"><table><tbody>${itemsHtml}</tbody></table></div>
+  <div class="items"><table><tbody>${itemsHtml}${expressHtml}</tbody></table></div>
   <div class="total"><table><tr><td>Total</td><td class="price">${formatColones(order.total)}</td></tr></table></div>
   <p class="payment">Pago: ${order.paymentMethod || '—'}</p>
   ${facturaHtml}
@@ -636,7 +646,7 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
                         Entregado
                       </button>
                     )}
-                    {order.status !== 'pending_approval' && order.status !== 'delivered' && order.status !== 'cancelled' && (
+                    {order.status !== 'pending_approval' && order.status !== 'cancelled' && (
                       <button
                         type="button"
                         className="action-btn action-btn--purple"
