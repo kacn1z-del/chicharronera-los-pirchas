@@ -354,6 +354,15 @@ function DishForm({ draft, setDraft, onCancel, onSave, saving, saveLabel, invent
       </label>
       {uploading && <p className="dish-form__hint">Subiendo foto…</p>}
       {uploadError && <p className="form-error">No se pudo subir la foto: {uploadError}</p>}
+      <label>
+        …o pegar el link de una foto ya subida a otro lado (opcional)
+        <input
+          type="text"
+          value={draft.imagenUrl}
+          onChange={set('imagenUrl')}
+          placeholder="https://…"
+        />
+      </label>
       {draft.imagenUrl && (
         <div className="dish-form__preview">
           <img src={draft.imagenUrl} alt="Vista previa" />
