@@ -4,39 +4,34 @@ import { db } from '../firebase'
 import { asegurarNumeroPedido, formatNumeroPedido } from '../lib/pedidoNumero'
 import { CATEGORIAS_BEBIDA, normalizarTexto } from '../lib/categoriasBebida'
 
-// Pantalla hermana de CocinaView, pero para bebidas: solo muestra los
-// pedidos que todavía tienen alguna bebida pendiente de preparar. Al marcar
-// "Preparado" acá se guarda bebidaLista: true; el pedido en general
-// (status) recién pasa a "listo" cuando también la comida está lista (si el
-// pedido tenía comida) — ver CocinaView.
+// Pantalla hermana de CocinaView, pero para bebidas: solo muestra las
+// RONDAS de pedido que todavía tienen alguna bebida pendiente de preparar.
+//
+// Por qué "rondas" y no "pedidos" enteros: cuando una mesa ya había pedido
+// algo y el mesero le agrega más después, ese "algo más" llega como una
+// ronda nueva dentro del mismo pedido (ver meseros/index.html ->
+// sendOrder/calcularRondaNueva) — así bebidas ve solo lo nuevo, sin que se
+// le vuelva a mezclar lo que ya había preparado antes. El admin
+// (OrdersTable) sigue viendo/cobrando el pedido completo, porque ahí se usa
+// order.items (el total acumulado de todas las rondas).
+//
+// Un pedido que nunca pasó por ese flujo (llegó de la página web, de un
+// pedido telefónico, o es de antes de este cambio) no tiene el campo
+// "rondas" — se lo trata como una única ronda implícita usando
+// comidaLista/bebidaLista a nivel del pedido completo, igual que antes.
 //
 // A propósito NO reutiliza OrdersTable ni CocinaView: esta pantalla no
 // necesita ver precios, no factura, no cancela, no elimina — cuanto más
 // simple, menos margen de error con las manos ocupadas.
 
-// Desde ahora cada ítem del pedido trae su propia categoría guardada al
-// momento de pedirlo (ver CartContext.jsx / Checkout.jsx del cliente,
-// PhoneOrderPanel.jsx y meseros/index.html) — eso es lo confiable, porque
-// no cambia aunque el nombre o la categoría del plato se editen después en
-// el menú. Para pedidos viejos que se hayan quedado sin ese campo, se cae
-// al cruce por nombre contra el menú actual como respaldo.
 function esBebidaItem(item, nombresBebida) {
   if (item.categoria) return CATEGORIAS_BEBIDA.includes(normalizarTexto(item.categoria))
   return nombresBebida.has(normalizarTexto(item.nombre))
 }
 
-function tieneComida(order, nombresBebida) {
-  return (order.items || []).some((i) => !esBebidaItem(i, nombresBebida))
-}
-
-function tieneBebida(order, nombresBebida) {
-  return (order.items || []).some((i) => esBebidaItem(i, nombresBebida))
-}
-
-function itemsBebida(order, nombresBebida) {
-  return (order.items || [])
-    .filter((i) => esBebidaItem(i, nombresBebida))
-    .map((i) => `${i.qty}× ${i.nombre}${i.nota ? ` (${i.nota})` : ''}`)
+function rondasDe(order) {
+  if (Array.isArray(order.rondas) && order.rondas.length > 0) return order.rondas
+  return [{ id: 'unica', items: order.items || [], comidaLista: !!order.comidaLista, bebidaLista: !!order.bebidaLista }]
 }
 
 function formatTime(createdAt) {
@@ -81,7 +76,6 @@ export default function BebidasView({ nombre, onLogout }) {
   }, [])
 
   useEffect(() => {
-    // Los más viejos primero — así se atiende en el orden en que llegaron.
     const q = query(collection(db, 'orders'), orderBy('createdAt', 'asc'))
     const unsub = onSnapshot(
       q,
@@ -90,8 +84,6 @@ export default function BebidasView({ nombre, onLogout }) {
         setAllOrders(todos)
         setLoading(false)
 
-        // Mismo mecanismo que en CocinaView: numera el pedido apenas
-        // alguna de las dos pantallas lo ve, si todavía no tiene número.
         todos
           .filter((o) => (o.status === 'pending' || o.status === 'preparing') && !o.numeroPedido)
           .forEach((o) => {
@@ -106,15 +98,14 @@ export default function BebidasView({ nombre, onLogout }) {
     return () => unsub()
   }, [])
 
-  // Solo pedidos activos, que tengan alguna bebida, y que esa bebida
-  // todavía no esté marcada lista — un pedido de solo comida nunca aparece
-  // acá (le corresponde 100% a CocinaView).
-  const orders = allOrders.filter(
-    (o) =>
-      (o.status === 'pending' || o.status === 'preparing') &&
-      tieneBebida(o, nombresBebida) &&
-      !o.bebidaLista
-  )
+  // Una "tarjeta" por cada ronda con bebida pendiente — no una por pedido.
+  const tarjetas = allOrders
+    .filter((o) => o.status === 'pending' || o.status === 'preparing')
+    .flatMap((order) =>
+      rondasDe(order)
+        .filter((r) => !r.bebidaLista && r.items.some((i) => esBebidaItem(i, nombresBebida)))
+        .map((ronda) => ({ order, ronda, esRondaExtra: rondasDe(order).length > 1 && ronda.id !== rondasDe(order)[0].id }))
+    )
 
   const empezar = async (order) => {
     setBusyId(order.id)
@@ -127,17 +118,21 @@ export default function BebidasView({ nombre, onLogout }) {
     }
   }
 
-  const marcarPreparado = async (order) => {
-    setBusyId(order.id)
+  const marcarPreparado = async (order, ronda) => {
+    setBusyId(ronda.id)
     try {
-      // La comida "cuenta como lista" si el pedido no tenía comida para
-      // empezar, o si CocinaView ya la marcó. Solo ahí el pedido completo
-      // pasa a "listo".
-      const comidaOk = !tieneComida(order, nombresBebida) || order.comidaLista
-      await updateDoc(doc(db, 'orders', order.id), {
-        bebidaLista: true,
-        ...(comidaOk ? { status: 'listo' } : {}),
+      const rondas = rondasDe(order).map((r) =>
+        r.id === ronda.id ? { ...r, bebidaLista: true } : r
+      )
+      const todoListo = rondas.every((r) => {
+        const tieneComida = r.items.some((i) => !esBebidaItem(i, nombresBebida))
+        const tieneBebida = r.items.some((i) => esBebidaItem(i, nombresBebida))
+        return (!tieneComida || r.comidaLista) && (!tieneBebida || r.bebidaLista)
       })
+      const payload = { rondas }
+      if (!Array.isArray(order.rondas) || order.rondas.length === 0) payload.bebidaLista = true
+      if (todoListo) payload.status = 'listo'
+      await updateDoc(doc(db, 'orders', order.id), payload)
     } catch (err) {
       alert('No se pudo actualizar: ' + err.message)
     } finally {
@@ -161,14 +156,15 @@ export default function BebidasView({ nombre, onLogout }) {
         <p className="cocina-empty">Cargando pedidos…</p>
       ) : error ? (
         <p className="cocina-empty">No se pudo leer los pedidos: {error}</p>
-      ) : orders.length === 0 ? (
+      ) : tarjetas.length === 0 ? (
         <p className="cocina-empty">No hay pedidos pendientes 🎉</p>
       ) : (
         <div className="cocina-grid">
-          {orders.map((order) => (
-            <div key={order.id} className={`cocina-card cocina-card--${order.status}`}>
+          {tarjetas.map(({ order, ronda, esRondaExtra }) => (
+            <div key={`${order.id}-${ronda.id}`} className={`cocina-card cocina-card--${order.status}`}>
               <div className="cocina-card__top">
                 <span className="cocina-card__cliente">
+                  {esRondaExtra && '🔄 '}
                   {order.mesa ? `Mesa ${order.mesa}` : order.clientName || 'Pedido telefónico'}
                   {order.numeroPedido && (
                     <span className="cocina-card__numero"> · {formatNumeroPedido(order.numeroPedido)}</span>
@@ -176,11 +172,14 @@ export default function BebidasView({ nombre, onLogout }) {
                 </span>
                 <span className="cocina-card__hora">{formatTime(order.createdAt)}</span>
               </div>
+              {esRondaExtra && <div className="cocina-card__canal">Agregado a un pedido ya en curso</div>}
               <div className="cocina-card__canal">{canalDe(order)}</div>
               <ul className="cocina-card__items">
-                {itemsBebida(order, nombresBebida).map((linea, i) => (
-                  <li key={i}>{linea}</li>
-                ))}
+                {ronda.items
+                  .filter((i) => esBebidaItem(i, nombresBebida))
+                  .map((i, idx) => (
+                    <li key={idx}>{`${i.qty}× ${i.nombre}${i.nota ? ` (${i.nota})` : ''}`}</li>
+                  ))}
               </ul>
               <div className="cocina-card__actions">
                 {order.status === 'pending' && (
@@ -197,10 +196,10 @@ export default function BebidasView({ nombre, onLogout }) {
                   <button
                     type="button"
                     className="cocina-btn cocina-btn--done"
-                    disabled={busyId === order.id}
-                    onClick={() => marcarPreparado(order)}
+                    disabled={busyId === ronda.id}
+                    onClick={() => marcarPreparado(order, ronda)}
                   >
-                    {busyId === order.id ? 'Un momento…' : '✅ Preparado'}
+                    {busyId === ronda.id ? 'Un momento…' : '✅ Preparado'}
                   </button>
                 )}
               </div>
