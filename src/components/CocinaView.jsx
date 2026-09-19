@@ -15,17 +15,28 @@ import { CATEGORIAS_BEBIDA, normalizarTexto } from '../lib/categoriasBebida'
 // no factura, no cancela, no elimina — cuanto más simple la pantalla, menos
 // margen de error con las manos ocupadas.
 
+// Desde ahora cada ítem del pedido trae su propia categoría guardada al
+// momento de pedirlo (ver CartContext.jsx / Checkout.jsx del cliente,
+// PhoneOrderPanel.jsx y meseros/index.html) — eso es lo confiable, porque
+// no cambia aunque el nombre o la categoría del plato se editen después en
+// el menú. Para pedidos viejos que se hayan quedado sin ese campo, se cae
+// al cruce por nombre contra el menú actual como respaldo.
+function esBebidaItem(item, nombresBebida) {
+  if (item.categoria) return CATEGORIAS_BEBIDA.includes(normalizarTexto(item.categoria))
+  return nombresBebida.has(normalizarTexto(item.nombre))
+}
+
 function tieneComida(order, nombresBebida) {
-  return (order.items || []).some((i) => !nombresBebida.has(normalizarTexto(i.nombre)))
+  return (order.items || []).some((i) => !esBebidaItem(i, nombresBebida))
 }
 
 function tieneBebida(order, nombresBebida) {
-  return (order.items || []).some((i) => nombresBebida.has(normalizarTexto(i.nombre)))
+  return (order.items || []).some((i) => esBebidaItem(i, nombresBebida))
 }
 
 function itemsComida(order, nombresBebida) {
   return (order.items || [])
-    .filter((i) => !nombresBebida.has(normalizarTexto(i.nombre)))
+    .filter((i) => !esBebidaItem(i, nombresBebida))
     .map((i) => `${i.qty}× ${i.nombre}${i.nota ? ` (${i.nota})` : ''}`)
 }
 
