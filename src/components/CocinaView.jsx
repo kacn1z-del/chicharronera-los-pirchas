@@ -2,39 +2,30 @@ import { useEffect, useState } from 'react'
 import { collection, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { asegurarNumeroPedido, formatNumeroPedido } from '../lib/pedidoNumero'
+import { CATEGORIAS_BEBIDA, normalizarTexto } from '../lib/categoriasBebida'
 
 // Pantalla dedicada para la cocina (tablet compartida). Solo muestra los
-// pedidos que todavía no están listos — pendientes o en preparación — y dos
-// botones grandes por pedido: "Empezar preparación" y "Preparado". En
-// cuanto un pedido se marca "Preparado" pasa a status "listo" y sale de esta
-// lista sola (el mesero/admin lo ve normal en su panel para entregarlo).
+// pedidos que todavía tienen comida pendiente de preparar — y dos botones
+// grandes por pedido: "Empezar preparación" y "Preparado". En cuanto se
+// marca "Preparado" acá, se guarda comidaLista: true; el pedido en general
+// (status) recién pasa a "listo" cuando también la bebida está lista (si el
+// pedido tenía bebida) — ver BebidasView, la pantalla hermana de esta.
 //
 // A propósito NO reutiliza OrdersTable: la cocina no necesita ver precios,
 // no factura, no cancela, no elimina — cuanto más simple la pantalla, menos
 // margen de error con las manos ocupadas.
 
-// A cocina no le interesan las bebidas (no las prepara) — se ocultan de la
-// lista de items para que la tarjeta muestre solo lo que sí hay que cocinar.
-// Cubre las 4 categorías de bebidas que existen hoy en el menú (después de
-// la reestructuración: antes todo vivía bajo una sola categoría "Bebidas").
-// El pedido en sí guarda solo nombre/precio/cantidad, no la categoría, así
-// que para saber cuáles son bebidas hay que cruzar contra la colección
-// "Menu" (donde sí vive el campo "categoria").
-const CATEGORIAS_SIN_COCINA = ['bebidas', 'bebidas calientes', 'batidos en agua', 'batidos en leche']
-
-function normalizar(text) {
-  return (text || '')
-    .toString()
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+function tieneComida(order, nombresBebida) {
+  return (order.items || []).some((i) => !nombresBebida.has(normalizarTexto(i.nombre)))
 }
 
-function itemsSummary(order, nombresBebida) {
-  if (!Array.isArray(order.items) || order.items.length === 0) return []
-  return order.items
-    .filter((i) => !nombresBebida.has(normalizar(i.nombre)))
+function tieneBebida(order, nombresBebida) {
+  return (order.items || []).some((i) => nombresBebida.has(normalizarTexto(i.nombre)))
+}
+
+function itemsComida(order, nombresBebida) {
+  return (order.items || [])
+    .filter((i) => !nombresBebida.has(normalizarTexto(i.nombre)))
     .map((i) => `${i.qty}× ${i.nombre}${i.nota ? ` (${i.nota})` : ''}`)
 }
 
@@ -59,7 +50,7 @@ function canalDe(order) {
 }
 
 export default function CocinaView({ nombre, onLogout }) {
-  const [orders, setOrders] = useState([])
+  const [allOrders, setAllOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [busyId, setBusyId] = useState(null)
@@ -67,14 +58,14 @@ export default function CocinaView({ nombre, onLogout }) {
 
   useEffect(() => {
     // Se arma un set con los nombres (normalizados) de todo lo que esté en
-    // una categoría de bebidas, para poder filtrarlos de cada pedido sin
-    // tener que guardar la categoría dentro del pedido mismo.
+    // una categoría de bebidas, para poder separarlos del resto del pedido
+    // sin tener que guardar la categoría dentro del pedido mismo.
     const unsubMenu = onSnapshot(collection(db, 'Menu'), (snap) => {
       const bebidas = new Set()
       snap.docs.forEach((d) => {
         const item = d.data()
-        if (CATEGORIAS_SIN_COCINA.includes(normalizar(item.categoria))) {
-          bebidas.add(normalizar(item.nombre))
+        if (CATEGORIAS_BEBIDA.includes(normalizarTexto(item.categoria))) {
+          bebidas.add(normalizarTexto(item.nombre))
         }
       })
       setNombresBebida(bebidas)
@@ -90,8 +81,7 @@ export default function CocinaView({ nombre, onLogout }) {
       q,
       (snap) => {
         const todos = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-        const pendientes = todos.filter((o) => o.status === 'pending' || o.status === 'preparing')
-        setOrders(pendientes)
+        setAllOrders(todos)
         setLoading(false)
 
         // Antes el número de pedido solo se asignaba al imprimir en el
@@ -99,9 +89,11 @@ export default function CocinaView({ nombre, onLogout }) {
         // le asigna apenas cocina lo ve por primera vez, para que llegue
         // numerado — asegurarNumeroPedido no hace nada si el pedido ya
         // tiene número, así que es seguro llamarlo en cada snapshot.
-        pendientes.filter((o) => !o.numeroPedido).forEach((o) => {
-          asegurarNumeroPedido(o).catch((err) => console.error('No se pudo numerar el pedido:', err))
-        })
+        todos
+          .filter((o) => (o.status === 'pending' || o.status === 'preparing') && !o.numeroPedido)
+          .forEach((o) => {
+            asegurarNumeroPedido(o).catch((err) => console.error('No se pudo numerar el pedido:', err))
+          })
       },
       (err) => {
         setError(err.message)
@@ -111,10 +103,39 @@ export default function CocinaView({ nombre, onLogout }) {
     return () => unsub()
   }, [])
 
-  const avanzar = async (order, nuevoStatus) => {
+  // Solo pedidos activos, que tengan algo de comida, y que esa comida
+  // todavía no esté marcada lista — un pedido de solo bebidas nunca aparece
+  // acá (le corresponde 100% a BebidasView).
+  const orders = allOrders.filter(
+    (o) =>
+      (o.status === 'pending' || o.status === 'preparing') &&
+      tieneComida(o, nombresBebida) &&
+      !o.comidaLista
+  )
+
+  const empezar = async (order) => {
     setBusyId(order.id)
     try {
-      await updateDoc(doc(db, 'orders', order.id), { status: nuevoStatus })
+      await updateDoc(doc(db, 'orders', order.id), { status: 'preparing' })
+    } catch (err) {
+      alert('No se pudo actualizar: ' + err.message)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const marcarPreparado = async (order) => {
+    setBusyId(order.id)
+    try {
+      // La bebida "cuenta como lista" si el pedido no tenía bebida para
+      // empezar, o si BebidasView ya la marcó. Solo ahí el pedido completo
+      // pasa a "listo" (lo que hace que salga de cocina Y de bebidas, y
+      // que el mesero/admin ya lo vea listo para entregar).
+      const bebidaOk = !tieneBebida(order, nombresBebida) || order.bebidaLista
+      await updateDoc(doc(db, 'orders', order.id), {
+        comidaLista: true,
+        ...(bebidaOk ? { status: 'listo' } : {}),
+      })
     } catch (err) {
       alert('No se pudo actualizar: ' + err.message)
     } finally {
@@ -154,25 +175,18 @@ export default function CocinaView({ nombre, onLogout }) {
                 <span className="cocina-card__hora">{formatTime(order.createdAt)}</span>
               </div>
               <div className="cocina-card__canal">{canalDe(order)}</div>
-              {(() => {
-                const lineas = itemsSummary(order, nombresBebida)
-                return lineas.length === 0 ? (
-                  <p className="cocina-card__sin-items">Solo bebidas — nada para preparar</p>
-                ) : (
-                  <ul className="cocina-card__items">
-                    {lineas.map((linea, i) => (
-                      <li key={i}>{linea}</li>
-                    ))}
-                  </ul>
-                )
-              })()}
+              <ul className="cocina-card__items">
+                {itemsComida(order, nombresBebida).map((linea, i) => (
+                  <li key={i}>{linea}</li>
+                ))}
+              </ul>
               <div className="cocina-card__actions">
                 {order.status === 'pending' && (
                   <button
                     type="button"
                     className="cocina-btn cocina-btn--start"
                     disabled={busyId === order.id}
-                    onClick={() => avanzar(order, 'preparing')}
+                    onClick={() => empezar(order)}
                   >
                     {busyId === order.id ? 'Un momento…' : '▶️ Empezar preparación'}
                   </button>
@@ -182,7 +196,7 @@ export default function CocinaView({ nombre, onLogout }) {
                     type="button"
                     className="cocina-btn cocina-btn--done"
                     disabled={busyId === order.id}
-                    onClick={() => avanzar(order, 'listo')}
+                    onClick={() => marcarPreparado(order)}
                   >
                     {busyId === order.id ? 'Un momento…' : '✅ Preparado'}
                   </button>
