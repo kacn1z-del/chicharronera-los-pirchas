@@ -6,12 +6,14 @@ const ROL_LABELS = {
   admin: 'Administrador',
   invitado: 'Invitado',
   cocina: 'Cocina',
+  bebidas: 'Bebidas',
 }
 
 const ROL_BADGE_TONE = {
   admin: 'badge--green',
   invitado: 'badge--blue',
   cocina: 'badge--amber',
+  bebidas: 'badge--red',
 }
 
 export default function StaffPanel() {
@@ -147,6 +149,7 @@ export default function StaffPanel() {
           <select value={rol} onChange={(e) => setRol(e.target.value)}>
             <option value="invitado">Invitado (ver, cobrar, cerrar caja)</option>
             <option value="cocina">Cocina (solo ver pedidos, marcar preparando/preparado)</option>
+            <option value="bebidas">Bebidas (solo ver bebidas, marcar preparando/preparado)</option>
             <option value="admin">Administrador (control total)</option>
           </select>
         </label>
@@ -190,6 +193,7 @@ export default function StaffPanel() {
                   >
                     <option value="invitado">Invitado</option>
                     <option value="cocina">Cocina</option>
+                    <option value="bebidas">Bebidas</option>
                     <option value="admin">Administrador</option>
                   </select>
                 </td>
