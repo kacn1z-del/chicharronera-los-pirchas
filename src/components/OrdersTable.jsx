@@ -191,7 +191,12 @@ async function printReceipt(order) {
      los 58mm declarados, así que se corría hacia la derecha y el borde
      derecho (los precios) se cortaba. Pegándolo a la izquierda entra
      completo dentro del área que la impresora sí imprime. */
-  body { font-family: -apple-system, Arial, sans-serif; color: #000; padding: 3mm 1mm 3mm 2mm; width: 48mm; margin: 0; }
+  /* 42mm en vez de 48mm: el cabezal de esta impresora en particular
+     imprime un área real más angosta que 48mm dentro del rollo de 58mm —
+     con 48mm el lado derecho (los precios, alineados a la derecha) se
+     seguía cortando en el papel físico, aunque en la vista previa del
+     celular se viera completo. */
+  body { font-family: -apple-system, Arial, sans-serif; color: #000; padding: 3mm 1mm 3mm 1mm; width: 42mm; margin: 0; }
   .center { text-align: center; }
   .logo { width: 100%; display: block; margin: 0 auto 4px; }
   .sub { font-size: 10px; margin-bottom: 8px; }
@@ -249,8 +254,26 @@ async function printReceipt(order) {
     iframe.style.width = '0'
     iframe.style.height = '0'
     iframe.style.border = '0'
-    iframe.onload = () => {
+    iframe.onload = async () => {
       try {
+        // El iframe ya cargó su HTML, pero las imágenes (logo, hamburguesa,
+        // papas) siguen bajando por su cuenta en ese momento — si se
+        // imprime de una, salen en blanco. Esperamos a que todas terminen
+        // (o a que pasen 1.5s como máximo, por si alguna falla) antes de
+        // disparar la impresión.
+        const imgs = Array.from(iframe.contentDocument?.images || [])
+        const esperaImagenes = Promise.all(
+          imgs.map((img) =>
+            img.complete
+              ? Promise.resolve()
+              : new Promise((resolve) => {
+                  img.addEventListener('load', resolve, { once: true })
+                  img.addEventListener('error', resolve, { once: true })
+                })
+          )
+        )
+        await Promise.race([esperaImagenes, new Promise((resolve) => setTimeout(resolve, 1500))])
+
         iframe.contentWindow.focus()
         iframe.contentWindow.print()
       } catch (printErr) {
