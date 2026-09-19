@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query, runTransaction, updateDoc, writeBatch } from 'firebase/firestore'
+import { collection, deleteDoc, doc, onSnapshot, orderBy, query, updateDoc, writeBatch } from 'firebase/firestore'
 import { db, writeAndContinue } from '../firebase'
+import { asegurarNumeroPedido, formatNumeroPedido } from '../lib/pedidoNumero'
 
 const STATUS_LABELS = {
   pending_approval: { label: 'Pendiente de aprobación', tone: 'red' },
@@ -110,33 +111,6 @@ function serviceLabel(order) {
 
 function formatColones(value) {
   return `₡${Number(value ?? 0).toLocaleString('es-CR')}`
-}
-
-function formatNumeroPedido(numero) {
-  return `Pirchas #${String(numero).padStart(6, '0')}`
-}
-
-// Le asigna a un pedido un número consecutivo (1, 2, 3…) la primera vez que
-// se imprime, guardado en el propio pedido para que reimprimir el mismo
-// recibo no cambie el número. El correlativo vive en un documento contador
-// aparte para que dos personas imprimiendo pedidos distintos a la vez no
-// terminen con el mismo número.
-async function asegurarNumeroPedido(order) {
-  if (order.numeroPedido) return order.numeroPedido
-
-  const contadorRef = doc(db, 'contadores', 'pedidos')
-  const orderRef = doc(db, 'orders', order.id)
-
-  const numero = await runTransaction(db, async (tx) => {
-    const snap = await tx.get(contadorRef)
-    const ultimo = snap.exists() ? Number(snap.data().ultimo || 0) : 0
-    const siguiente = ultimo + 1
-    tx.set(contadorRef, { ultimo: siguiente }, { merge: true })
-    tx.update(orderRef, { numeroPedido: siguiente })
-    return siguiente
-  })
-
-  return numero
 }
 
 async function printReceipt(order) {
