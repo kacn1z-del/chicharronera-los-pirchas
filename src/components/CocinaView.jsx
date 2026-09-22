@@ -34,7 +34,18 @@ function esBebidaItem(item, nombresBebida) {
 // pedido no tiene el campo (pedidos que no vienen de una mesa reabierta).
 function rondasDe(order) {
   if (Array.isArray(order.rondas) && order.rondas.length > 0) return order.rondas
-  return [{ id: 'unica', items: order.items || [], comidaLista: !!order.comidaLista, bebidaLista: !!order.bebidaLista }]
+  return [{ id: 'unica', items: order.items || [], comidaLista: !!order.comidaLista, bebidaLista: !!order.bebidaLista, creadaEn: order.createdAt }]
+}
+
+// Convierte un timestamp de Firestore, un número (Date.now()), o nada, a
+// milisegundos comparables — para poder ordenar rondas y pedidos por la
+// misma línea de tiempo sin importar de dónde salió cada uno.
+function aMillis(valor) {
+  if (!valor) return 0
+  if (typeof valor === 'number') return valor
+  if (typeof valor.toMillis === 'function') return valor.toMillis()
+  if (typeof valor.toDate === 'function') return valor.toDate().getTime()
+  return 0
 }
 
 function formatTime(createdAt) {
@@ -110,6 +121,10 @@ export default function CocinaView({ nombre, onLogout }) {
   }, [])
 
   // Una "tarjeta" por cada ronda con comida pendiente — no una por pedido.
+  // Se ordenan por el momento en que se creó CADA RONDA (no la hora del
+  // pedido original), para que una ronda agregada después a una mesa que
+  // ya tenía pedido se coloque al final de la cola, donde le corresponde
+  // por orden de llegada — no se cuela en el lugar del pedido original.
   const tarjetas = allOrders
     .filter((o) => o.status === 'pending' || o.status === 'preparing')
     .flatMap((order) =>
@@ -117,6 +132,7 @@ export default function CocinaView({ nombre, onLogout }) {
         .filter((r) => !r.comidaLista && r.items.some((i) => !esBebidaItem(i, nombresBebida)))
         .map((ronda) => ({ order, ronda, esRondaExtra: rondasDe(order).length > 1 && ronda.id !== rondasDe(order)[0].id }))
     )
+    .sort((a, b) => aMillis(a.ronda.creadaEn ?? a.order.createdAt) - aMillis(b.ronda.creadaEn ?? b.order.createdAt))
 
   const empezar = async (order) => {
     setBusyId(order.id)
@@ -194,6 +210,7 @@ export default function CocinaView({ nombre, onLogout }) {
                     <li key={idx}>{`${i.qty}× ${i.nombre}${i.nota ? ` (${i.nota})` : ''}`}</li>
                   ))}
               </ul>
+              {order.notes && <div className="cocina-card__notas">📝 {order.notes}</div>}
               <div className="cocina-card__actions">
                 {order.status === 'pending' && (
                   <button
