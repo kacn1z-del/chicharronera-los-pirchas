@@ -16,10 +16,20 @@ import { esCategoriaBebida, normalizarTexto } from '../lib/categoriasBebida'
 // sigue viendo/cobrando el pedido completo, porque ahí se usa order.items
 // (el total acumulado de todas las rondas), no las rondas por separado.
 //
+// IMPORTANTE: cada ronda lleva su PROPIO estado "iniciada" (si ya se tocó
+// Empezar preparación para esa ronda en particular) además de comidaLista.
+// Antes ese estado se leía de order.status (compartido por todo el pedido),
+// y eso hacía que empezar a preparar la ronda nueva "contagiara" el botón
+// de la ronda vieja (y viceversa) — dos rondas del mismo pedido mostraban
+// siempre el mismo botón entre sí, aunque estuvieran en momentos distintos.
+// order.status se sigue actualizando (para que el admin vea el pedido como
+// "en preparación"), pero ya no decide qué botón mostrar en cada tarjeta.
+//
 // Un pedido que nunca pasó por ese flujo (llegó de la página web, de un
 // pedido telefónico, o es de antes de este cambio) no tiene el campo
 // "rondas" — se lo trata como una única ronda implícita usando
-// comidaLista/bebidaLista a nivel del pedido completo, igual que antes.
+// comidaLista/bebidaLista/iniciada a nivel del pedido completo, igual que
+// antes.
 //
 // A propósito NO reutiliza OrdersTable: la cocina no necesita ver precios,
 // no factura, no cancela, no elimina — cuanto más simple la pantalla, menos
@@ -32,9 +42,19 @@ function esBebidaItem(item, nombresBebida) {
 
 // Las rondas "reales" de un pedido, o una ronda implícita única si el
 // pedido no tiene el campo (pedidos que no vienen de una mesa reabierta).
+// La ronda implícita hereda "iniciada" de order.status !== 'pending', para
+// que pedidos viejos (de antes de este cambio) no vuelvan a mostrar
+// "Empezar preparación" si ya estaban en curso.
 function rondasDe(order) {
   if (Array.isArray(order.rondas) && order.rondas.length > 0) return order.rondas
-  return [{ id: 'unica', items: order.items || [], comidaLista: !!order.comidaLista, bebidaLista: !!order.bebidaLista, creadaEn: order.createdAt }]
+  return [{
+    id: 'unica',
+    items: order.items || [],
+    comidaLista: !!order.comidaLista,
+    bebidaLista: !!order.bebidaLista,
+    iniciada: order.status !== 'pending',
+    creadaEn: order.createdAt,
+  }]
 }
 
 // Convierte un timestamp de Firestore, un número (Date.now()), o nada, a
@@ -134,10 +154,13 @@ export default function CocinaView({ nombre, onLogout }) {
     )
     .sort((a, b) => aMillis(a.ronda.creadaEn ?? a.order.createdAt) - aMillis(b.ronda.creadaEn ?? b.order.createdAt))
 
-  const empezar = async (order) => {
-    setBusyId(order.id)
+  // Marca SOLO esta ronda como "iniciada" — no toca las demás rondas del
+  // mismo pedido, que pueden estar en cualquier otro momento propio.
+  const empezar = async (order, ronda) => {
+    setBusyId(ronda.id)
     try {
-      await updateDoc(doc(db, 'orders', order.id), { status: 'preparing' })
+      const rondas = rondasDe(order).map((r) => (r.id === ronda.id ? { ...r, iniciada: true } : r))
+      await updateDoc(doc(db, 'orders', order.id), { rondas, status: 'preparing' })
     } catch (err) {
       alert('No se pudo actualizar: ' + err.message)
     } finally {
@@ -190,7 +213,7 @@ export default function CocinaView({ nombre, onLogout }) {
       ) : (
         <div className="cocina-grid">
           {tarjetas.map(({ order, ronda, esRondaExtra }) => (
-            <div key={`${order.id}-${ronda.id}`} className={`cocina-card cocina-card--${order.status}`}>
+            <div key={`${order.id}-${ronda.id}`} className={`cocina-card cocina-card--${ronda.iniciada ? 'preparing' : 'pending'}`}>
               <div className="cocina-card__top">
                 <span className="cocina-card__cliente">
                   {esRondaExtra && '🔄 '}
@@ -212,17 +235,16 @@ export default function CocinaView({ nombre, onLogout }) {
               </ul>
               {order.notes && <div className="cocina-card__notas">📝 {order.notes}</div>}
               <div className="cocina-card__actions">
-                {order.status === 'pending' && (
+                {!ronda.iniciada ? (
                   <button
                     type="button"
                     className="cocina-btn cocina-btn--start"
-                    disabled={busyId === order.id}
-                    onClick={() => empezar(order)}
+                    disabled={busyId === ronda.id}
+                    onClick={() => empezar(order, ronda)}
                   >
-                    {busyId === order.id ? 'Un momento…' : '▶️ Empezar preparación'}
+                    {busyId === ronda.id ? 'Un momento…' : '▶️ Empezar preparación'}
                   </button>
-                )}
-                {order.status === 'preparing' && (
+                ) : (
                   <button
                     type="button"
                     className="cocina-btn cocina-btn--done"
