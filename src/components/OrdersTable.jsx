@@ -754,6 +754,7 @@ function FacturaModal({ order, onCancel, onConfirm }) {
   const [form, setForm] = useState({
     nombre: order.clientName || '',
     cedula: order.clientCedula || '',
+    cedulaTipo: order.clientCedulaTipo || '01',
     correo: order.clientEmail || '',
     direccion: order.clientAddress || '',
     telefono: order.clientPhone || '',
@@ -765,7 +766,7 @@ function FacturaModal({ order, onCancel, onConfirm }) {
     e.preventDefault()
     const datos = {
       ...(form.nombre.trim() ? { clientName: form.nombre.trim() } : {}),
-      ...(form.cedula.trim() ? { clientCedula: form.cedula.trim() } : {}),
+      ...(form.cedula.trim() ? { clientCedula: form.cedula.trim(), clientCedulaTipo: form.cedulaTipo } : {}),
       ...(form.correo.trim() ? { clientEmail: form.correo.trim() } : {}),
       ...(form.direccion.trim() ? { clientAddress: form.direccion.trim() } : {}),
       ...(form.telefono.trim() ? { clientPhone: form.telefono.trim() } : {}),
@@ -778,8 +779,9 @@ function FacturaModal({ order, onCancel, onConfirm }) {
       <div className="modal-card">
         <h3>Datos para el comprobante</h3>
         <p className="dish-form__hint">
-          Todos son opcionales. Con cédula se emite Factura completa (si no, Tiquete). Con correo se
-          manda por email; con teléfono, además podés mandarlo por WhatsApp.
+          Todos son opcionales. Con cédula se emite Factura completa (si no, Tiquete) — elegí bien el
+          tipo (Física/Jurídica/DIMEX/NITE) o Hacienda puede rechazarla. Con correo se manda por
+          email; con teléfono, además podés mandarlo por WhatsApp.
         </p>
         <form onSubmit={handleSubmit} className="dish-form">
           <label>
@@ -789,6 +791,15 @@ function FacturaModal({ order, onCancel, onConfirm }) {
           <label>
             Cédula
             <input value={form.cedula} onChange={set('cedula')} placeholder="Opcional — para Factura completa" />
+          </label>
+          <label>
+            Tipo de identificación
+            <select value={form.cedulaTipo} onChange={set('cedulaTipo')}>
+              <option value="01">Física</option>
+              <option value="02">Jurídica</option>
+              <option value="03">DIMEX (residencia extranjera)</option>
+              <option value="04">NITE</option>
+            </select>
           </label>
           <label>
             Correo electrónico
