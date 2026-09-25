@@ -77,16 +77,36 @@ export default function FloorPlanPanel() {
   const findOpenOrder = (mesa) => openOrders.find((o) => o.mesa === mesa) || null
   const selectedOrder = selectedMesa ? findOpenOrder(selectedMesa) : null
 
+  const getMesaColorClass = (mesa) => {
+    let colorClass = 'fp-item--normal' // por defecto verde bosque
+    const mesaNum = Number(mesa)
+    
+    if (!Number.isNaN(mesaNum)) {
+      // Es número de mesa
+      if (mesaNum >= 1 && mesaNum <= 19) {
+        colorClass = 'fp-item--1to19' // amarillo oro
+      }
+    } else {
+      // Es texto (Llevar, Express)
+      if (mesa.includes('Express')) {
+        colorClass = 'fp-item--express' // azul
+      }
+    }
+    
+    return colorClass
+  }
+
   const mesaButton = (mesa) => {
     const order = findOpenOrder(mesa)
     const busy = !!order
     const isTakeout = Number.isNaN(Number(mesa))
     const label = isTakeout ? mesa.toUpperCase() : mesa
+    const colorClass = getMesaColorClass(mesa)
     return (
       <button
         key={mesa}
         type="button"
-        className={`fp-item ${busy ? 'busy' : ''}`}
+        className={`fp-item ${colorClass} ${busy ? 'busy' : ''}`}
         onClick={() => (busy ? setSelectedMesa(mesa) : null)}
       >
         {label}
