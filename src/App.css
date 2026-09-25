@@ -1984,3 +1984,65 @@
   cursor: pointer;
   flex: 0 0 auto;
 }
+
+/* ============================================================
+   AUMENTAR LETRA - VERSIÓN SEGURA
+   ============================================================ */
+
+body {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+h1, h2, h3, h4 {
+  font-weight: 700;
+}
+
+button {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+input, textarea, select {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+table {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+table th {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+table td {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.badge {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.sidebar__link {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+a {
+  font-weight: 600;
+}
+
+p {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+label {
+  font-weight: 700;
+  font-size: 16px;
+}
