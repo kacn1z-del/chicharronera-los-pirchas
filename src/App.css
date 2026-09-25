@@ -1035,6 +1035,18 @@
   color: white;
 }
 
+.fp-item--llevar {
+  border: 2px solid #7C3AED;
+  background: linear-gradient(160deg, #A78BFA, #7C3AED);
+  color: white;
+}
+
+.fp-item--llevar.busy {
+  background: linear-gradient(160deg, #EC4899, #DB2777);
+  border-color: #BE185D;
+  color: white;
+}
+
 .fp-item--express {
   border: 2px solid #0000FF;
   background: linear-gradient(160deg, #4D4DFF, #0000CC);
