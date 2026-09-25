@@ -1010,6 +1010,43 @@
   font-size: 9px;
 }
 
+/* Colores base por tipo de mesa */
+.fp-item--1to19 {
+  border: 2px solid #FFD700;
+  background: linear-gradient(160deg, #FFF8DC, #FFE74C);
+  color: #333;
+}
+
+.fp-item--1to19.busy {
+  background: linear-gradient(160deg, #FF6B6B, #FF4444);
+  border-color: #FF2222;
+  color: white;
+}
+
+.fp-item--normal {
+  border: 2px solid #2E6F40;
+  background: linear-gradient(160deg, #4A9D6F, #2E6F40);
+  color: white;
+}
+
+.fp-item--normal.busy {
+  background: linear-gradient(160deg, #FF8C42, #FF6B00);
+  border-color: #FF4500;
+  color: white;
+}
+
+.fp-item--express {
+  border: 2px solid #0000FF;
+  background: linear-gradient(160deg, #4D4DFF, #0000CC);
+  color: white;
+}
+
+.fp-item--express.busy {
+  background: linear-gradient(160deg, #FF3333, #CC0000);
+  border-color: #990000;
+  color: white;
+}
+
 /* Detalle del pedido al tocar una mesa ocupada */
 .fp-detail-overlay {
   position: fixed;
@@ -1983,66 +2020,4 @@
   padding: 4px;
   cursor: pointer;
   flex: 0 0 auto;
-}
-
-/* ============================================================
-   AUMENTAR LETRA - VERSIÓN SEGURA
-   ============================================================ */
-
-body {
-  font-size: 16px;
-  font-weight: 600;
-}
-
-h1, h2, h3, h4 {
-  font-weight: 700;
-}
-
-button {
-  font-size: 16px;
-  font-weight: 700;
-}
-
-input, textarea, select {
-  font-size: 16px;
-  font-weight: 600;
-}
-
-table {
-  font-size: 16px;
-  font-weight: 600;
-}
-
-table th {
-  font-weight: 700;
-  font-size: 16px;
-}
-
-table td {
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.badge {
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.sidebar__link {
-  font-size: 16px;
-  font-weight: 700;
-}
-
-a {
-  font-weight: 600;
-}
-
-p {
-  font-size: 16px;
-  font-weight: 600;
-}
-
-label {
-  font-weight: 700;
-  font-size: 16px;
 }
