@@ -1984,3 +1984,254 @@
   cursor: pointer;
   flex: 0 0 auto;
 }
+/* src/index.css o al final de App.css */
+/* ========================================================
+   AUMENTOS DE LETRA Y NEGRITA - GLOBAL
+   ======================================================== */
+
+/* Labels y campos de formulario */
+label,
+.form-label,
+.label {
+  font-size: 18px !important;
+  font-weight: 700 !important;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+textarea,
+select {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  padding: 12px 14px !important;
+  line-height: 1.6 !important;
+}
+
+/* Botones */
+button,
+.button,
+.btn,
+.action-btn {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  padding: 12px 20px !important;
+  line-height: 1.6 !important;
+}
+
+/* Títulos en paneles y modales */
+.panel-title,
+.modal-title,
+.card-title,
+h1,
+h2,
+h3 {
+  font-weight: 700 !important;
+}
+
+/* Texto en tablas */
+table {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+
+table th {
+  font-weight: 700 !important;
+  font-size: 16px !important;
+}
+
+table td {
+  font-weight: 600 !important;
+  font-size: 16px !important;
+  padding: 14px 8px !important;
+}
+
+/* Badges y estados */
+.badge {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  padding: 8px 12px !important;
+}
+
+/* Sidebars y navegación */
+.sidebar__link {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  padding: 12px 14px !important;
+}
+
+.sidebar__title {
+  font-size: 18px !important;
+  font-weight: 700 !important;
+}
+
+/* Topbar */
+.topbar__title {
+  font-size: 28px !important;
+  font-weight: 700 !important;
+}
+
+/* Métrica cards */
+.metric-card {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+
+.metric-card__value {
+  font-size: 24px !important;
+  font-weight: 700 !important;
+}
+
+.metric-card__label {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+}
+
+/* Hints y ayuda */
+.hint,
+.help-text,
+.error-message,
+.success-message,
+.warning-message {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+}
+
+/* Chips y pills */
+.chip,
+.pill,
+.tag {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  padding: 8px 12px !important;
+}
+
+/* Placeholders */
+::placeholder {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+
+/* Diálogos y modales */
+.modal-card,
+.dialog {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+
+.modal-card h2,
+.modal-card h3,
+.dialog h2,
+.dialog h3 {
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  margin-bottom: 16px !important;
+}
+
+/* Links */
+a,
+.link {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Columnas y grid */
+.col-cliente,
+.col-mesa,
+.col-restaurante,
+.col-pedido,
+.col-estado,
+.col-canal,
+.col-hora,
+.col-contacto,
+.col-acciones {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+}
+
+/* Info text */
+.info-text,
+.description {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  line-height: 1.6 !important;
+}
+
+/* Status indicators */
+.status-text,
+.status-label {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+}
+
+/* Valores y números */
+.value,
+.number,
+.amount,
+.price {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  font-family: var(--font-mono) !important;
+}
+
+/* Pequeños textos que deben estar legibles */
+small {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}
+
+/* Avisos */
+.alert,
+.notification {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  padding: 14px 16px !important;
+  line-height: 1.6 !important;
+}
+
+/* Items en listas */
+.list-item,
+li {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  padding: 10px 0 !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  body {
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  button,
+  .button,
+  .btn,
+  .action-btn {
+    font-size: 15px !important;
+    padding: 10px 18px !important;
+  }
+
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  textarea,
+  select {
+    font-size: 15px !important;
+    padding: 10px 12px !important;
+  }
+
+  table th,
+  table td {
+    font-size: 15px !important;
+    padding: 12px 6px !important;
+  }
+}
+
