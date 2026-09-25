@@ -88,7 +88,9 @@ export default function FloorPlanPanel() {
       }
     } else {
       // Es texto (Llevar, Express)
-      if (mesa.includes('Express')) {
+      if (mesa.includes('Llevar')) {
+        colorClass = 'fp-item--llevar' // púrpura
+      } else if (mesa.includes('Express')) {
         colorClass = 'fp-item--express' // azul
       }
     }
