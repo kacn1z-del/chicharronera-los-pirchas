@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnóstico PWA</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui;
+            background: #f5f5f5;
+            padding: 16px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #171310;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+        .check {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding: 12px;
+            border-radius: 6px;
+            background: #f9f9f9;
+        }
+        .check-icon {
+            font-size: 24px;
+            flex-shrink: 0;
+            width: 30px;
+            text-align: center;
+        }
+        .check-content {
+            flex: 1;
+        }
+        .check-label {
+            font-weight: 600;
+            color: #171310;
+            margin-bottom: 4px;
+        }
+        .check-detail {
+            font-size: 13px;
+            color: #666;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+        }
+        .status-pass {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+        }
+        .status-fail {
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+        }
+        .status-warning {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+        }
+        .test-section {
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+        .test-button {
+            width: 100%;
+            padding: 12px 16px;
+            background: #171310;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 8px;
+        }
+        .test-button:active {
+            opacity: 0.8;
+        }
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #1565c0;
+            margin-top: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Diagnóstico PWA</h1>
+
+        <div id="checks"></div>
+
+        <div class="test-section">
+            <button class="test-button" onclick="testManifest()">📋 Verificar Manifest.json</button>
+            <button class="test-button" onclick="testSW()">🔄 Verificar Service Worker</button>
+            <button class="test-button" onclick="testStorage()">💾 Verificar Almacenamiento</button>
+        </div>
+
+        <div id="results"></div>
+
+        <div class="info-box">
+            <strong>💡 Tip:</strong> Guardá esta página en marcadores para diagnosticar problemas PWA en cualquier momento.
+        </div>
+    </div>
+
+    <script>
+        // Color de iconos por estado
+        const icons = {
+            pass: '✅',
+            fail: '❌',
+            warning: '⚠️'
+        };
+
+        // Tests básicos al cargar
+        function runTests() {
+            const checks = document.getElementById('checks');
+            checks.innerHTML = '';
+
+            // Test 1: Service Workers soportados
+            const swSupported = 'serviceWorker' in navigator;
+            addCheck('Service Workers', swSupported, swSupported ? 'Navegador soporta SW' : 'Este navegador NO soporta PWA');
+
+            // Test 2: HTTPS
+            const isHttps = window.location.protocol === 'https:';
+            addCheck('HTTPS', isHttps, isHttps ? 'Conexión segura ✅' : 'PWA requiere HTTPS ⚠️ (solo en localhost está permitido HTTP)');
+
+            // Test 3: Manifest linkado
+            const manifestLink = document.querySelector('link[rel="manifest"]');
+            addCheck('Manifest linkeado', !!manifestLink, manifestLink ? manifestLink.href : 'No encontrado');
+
+            // Test 4: Web App Capable
+            const webAppCapable = document.querySelector('meta[name="apple-mobile-web-app-capable"]');
+            addCheck('Web App Capable', !!webAppCapable, webAppCapable ? 'Presente' : 'Meta tag faltante');
+
+            // Test 5: Viewport correcto
+            const viewport = document.querySelector('meta[name="viewport"]');
+            const hasViewport = viewport && viewport.content.includes('width=device-width');
+            addCheck('Viewport', hasViewport, hasViewport ? viewport.content : 'Viewport incorrecto');
+
+            // Test 6: Storage persistente
+            if (navigator.storage && navigator.storage.persist) {
+                navigator.storage.persist().then(isPersistent => {
+                    addCheck('Storage Persistente', isPersistent, isPersistent ? 'Disponible' : 'No disponible (normal)', 'warning');
+                });
+            } else {
+                addCheck('Storage Persistente', false, 'No soportado', 'warning');
+            }
+
+            // Test 7: Espacio disponible
+            if (navigator.storage && navigator.storage.estimate) {
+                navigator.storage.estimate().then(estimate => {
+                    const percentUsed = Math.round((estimate.usage / estimate.quota) * 100);
+                    const available = Math.round((estimate.quota - estimate.usage) / (1024 * 1024));
+                    const warning = available < 50;
+                    addCheck('Almacenamiento disponible', !warning, `${available}MB libre (${percentUsed}% usado)`, warning ? 'warning' : 'pass');
+                });
+            }
+        }
+
+        function addCheck(label, pass, detail, override) {
+            const checks = document.getElementById('checks');
+            const status = override || (pass ? 'pass' : 'fail');
+            const icon = pass ? icons.pass : (status === 'warning' ? icons.warning : icons.fail);
+            
+            const div = document.createElement('div');
+            div.className = `check status-${status}`;
+            div.innerHTML = `
+                <div class="check-icon">${icon}</div>
+                <div class="check-content">
+                    <div class="check-label">${label}</div>
+                    <div class="check-detail">${detail}</div>
+                </div>
+            `;
+            checks.appendChild(div);
+        }
+
+        function testManifest() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<div style="padding: 12px; background: #f0f0f0; border-radius: 6px; font-family: monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; max-height: 200px; overflow: auto;"><strong>Cargando manifest.json...</strong></div>';
+
+            fetch('/manifest.json')
+                .then(res => {
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    return res.json();
+                })
+                .then(manifest => {
+                    const json = JSON.stringify(manifest, null, 2);
+                    results.innerHTML = `<div style="padding: 12px; background: #e8f5e9; border-radius: 6px; font-family: monospace; font-size: 11px; white-space: pre-wrap; word-break: break-word; max-height: 300px; overflow: auto;">${json}</div>`;
+                })
+                .catch(err => {
+                    results.innerHTML = `<div style="padding: 12px; background: #ffebee; border-radius: 6px; color: #c62828;">❌ Error: ${err.message}</div>`;
+                });
+        }
+
+        function testSW() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<div style="padding: 12px; background: #f0f0f0; border-radius: 6px;">Registrando Service Worker...</div>';
+
+            if (!('serviceWorker' in navigator)) {
+                results.innerHTML = '<div style="padding: 12px; background: #ffebee; border-radius: 6px; color: #c62828;">❌ Este navegador NO soporta Service Workers</div>';
+                return;
+            }
+
+            navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                .then(reg => {
+                    results.innerHTML = `<div style="padding: 12px; background: #e8f5e9; border-radius: 6px; font-family: monospace; font-size: 12px;">✅ Service Worker registrado:<br><br>Scope: ${reg.scope}<br>Active: ${reg.active ? 'Sí' : 'No'}<br>Installing: ${reg.installing ? 'Sí' : 'No'}<br>Waiting: ${reg.waiting ? 'Sí' : 'No'}</div>`;
+                })
+                .catch(err => {
+                    results.innerHTML = `<div style="padding: 12px; background: #ffebee; border-radius: 6px; color: #c62828; font-family: monospace; font-size: 12px;">❌ Error: ${err.message}</div>`;
+                });
+        }
+
+        function testStorage() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<div style="padding: 12px; background: #f0f0f0; border-radius: 6px;">Verificando almacenamiento...</div>';
+
+            if (!navigator.storage || !navigator.storage.estimate) {
+                results.innerHTML = '<div style="padding: 12px; background: #fff3e0; border-radius: 6px; color: #e65100;">⚠️ API de almacenamiento no disponible en este dispositivo</div>';
+                return;
+            }
+
+            navigator.storage.estimate().then(estimate => {
+                const quota = Math.round(estimate.quota / (1024 * 1024));
+                const usage = Math.round(estimate.usage / (1024 * 1024));
+                const available = quota - usage;
+                const percent = Math.round((usage / quota) * 100);
+
+                let statusColor = '#e8f5e9';
+                let statusMsg = '✅ Espacio suficiente';
+                if (available < 50) {
+                    statusColor = '#ffebee';
+                    statusMsg = '❌ Espacio insuficiente (< 50MB)';
+                } else if (available < 100) {
+                    statusColor = '#fff3e0';
+                    statusMsg = '⚠️ Espacio limitado (< 100MB)';
+                }
+
+                results.innerHTML = `<div style="padding: 12px; background: ${statusColor}; border-radius: 6px; font-family: monospace; font-size: 12px;">${statusMsg}<br><br>Quota total: ${quota}MB<br>Usado: ${usage}MB<br>Disponible: ${available}MB<br>Ocupación: ${percent}%</div>`;
+            });
+        }
+
+        // Ejecutar tests al cargar
+        runTests();
+    </script>
+</body>
+</html>
