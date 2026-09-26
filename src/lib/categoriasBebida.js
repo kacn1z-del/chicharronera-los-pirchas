@@ -20,6 +20,7 @@ const PALABRAS_CLAVE_BEBIDA = [
   'chocolate',
   'aguadulce',
   'smoothie', 'smoothies',
+  'vino', 'vinos',
 ]
 
 export function esCategoriaBebida(categoria) {
@@ -33,5 +34,5 @@ export function normalizarTexto(text) {
     .trim()
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[̀-ͯ]/g, '')
 }
