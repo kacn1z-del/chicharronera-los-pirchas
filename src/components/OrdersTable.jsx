@@ -846,12 +846,15 @@ const EXPRESS_FEE_OPTIONS = [0, 500, 1000, 1500, 2000, 2500]
 // Modal de cobro: cobrar todo junto con un método de pago, o dividir la
 // cuenta asignando cada plato a una persona específica (igual que en la
 // app de meseros) y elegir el método de pago de cada una por separado.
+// NOTA: Esto es SOLO la función CobroModal modificada. Reemplazá la función completa
+// en src/components/OrdersTable.jsx (búscala desde "function CobroModal({")
+
 function CobroModal({ order, onCancel, onConfirm }) {
   const items = order.items || []
   const isExpress = order.tipo === 'express'
   const [modo, setModo] = useState('junto') // 'junto' | 'mixto' | 'dividir'
   const [paymentMethod, setPaymentMethod] = useState('efectivo')
-  const [expressFees, setExpressFees] = useState([]) // montos de cargo express seleccionados (se suman)
+  const [expressFees, setExpressFees] = useState([])
   const [montoEfectivo, setMontoEfectivo] = useState('')
   const [montoTarjeta, setMontoTarjeta] = useState('')
   const [montoSinpe, setMontoSinpe] = useState('')
@@ -861,7 +864,9 @@ function CobroModal({ order, onCancel, onConfirm }) {
   ])
   const [personaSeq, setPersonaSeq] = useState(2)
   const [activePersonaId, setActivePersonaId] = useState(1)
-  const [assignments, setAssignments] = useState({}) // { [nombre]: [personaId|null, ...] }
+  const [assignments, setAssignments] = useState({})
+  // NUEVO: controlar QUIÉNES pagan (para el caso de que se vayan algunos)
+  const [personasAPagar, setPersonasAPagar] = useState(new Set(personas.map((p) => p.id)))
 
   const getAssignments = (nombre, qty) => {
     const arr = (assignments[nombre] || []).slice(0, qty)
@@ -869,27 +874,18 @@ function CobroModal({ order, onCancel, onConfirm }) {
     return arr
   }
 
-  // El cargo por express es la suma de todos los montos que el mesero/admin
-  // haya seleccionado (se puede combinar más de una casilla, ej. ₡2.000 +
-  // ₡500 = ₡2.500 de una vez).
   const expressFee = expressFees.reduce((sum, fee) => sum + fee, 0)
   const toggleExpressFee = (fee) => {
     setExpressFees((prev) => (prev.includes(fee) ? prev.filter((f) => f !== fee) : [...prev, fee]))
   }
 
-  // Total real a cobrar (incluye el cargo express si aplica) — se usa en
-  // los tres modos de cobro.
   const totalACobrar = order.total + expressFee
 
-  // Pago mixto: el cliente paga la misma cuenta repartida entre efectivo,
-  // tarjeta y SINPE al mismo tiempo (ej. ₡5.000 efectivo + ₡10.000 tarjeta
-  // + ₡5.000 SINPE = ₡20.000). Los tres montos deben sumar exacto el total.
   const sumaMixta = (Number(montoEfectivo) || 0) + (Number(montoTarjeta) || 0) + (Number(montoSinpe) || 0)
   const faltanteMixto = totalACobrar - sumaMixta
 
-  // Reparto parejo del cobro adicional por express entre las personas que
-  // están pagando (solo aplica en modo "dividir").
-  const feeShare = (personas.length > 0 ? Math.round(expressFee / personas.length) : 0)
+  // MODIFICADO: calcular fee solo sobre las personas que van a pagar
+  const feeShare = (personasAPagar.size > 0 ? Math.round(expressFee / personasAPagar.size) : 0)
 
   const personaTotal = (personaId) => {
     let total = 0
@@ -898,7 +894,7 @@ function CobroModal({ order, onCancel, onConfirm }) {
         if (pid === personaId) total += it.precio
       })
     })
-    if (expressFee > 0) total += feeShare
+    if (expressFee > 0 && personasAPagar.has(personaId)) total += feeShare
     return total
   }
 
@@ -915,9 +911,12 @@ function CobroModal({ order, onCancel, onConfirm }) {
   const addPersona = () => {
     if (personas.length >= 8) return
     const seq = personaSeq + 1
-    setPersonas([...personas, { id: seq, metodo: 'efectivo' }])
+    const nuevaPersona = { id: seq, metodo: 'efectivo' }
+    setPersonas([...personas, nuevaPersona])
     setPersonaSeq(seq)
     setActivePersonaId(seq)
+    // Auto-agregar a personas a pagar
+    setPersonasAPagar(new Set([...personasAPagar, seq]))
   }
 
   const removePersona = (id) => {
@@ -929,6 +928,7 @@ function CobroModal({ order, onCancel, onConfirm }) {
     const nuevasPersonas = personas.filter((p) => p.id !== id)
     setAssignments(nuevasAssignments)
     setPersonas(nuevasPersonas)
+    setPersonasAPagar(new Set([...personasAPagar].filter((pid) => pid !== id)))
     if (activePersonaId === id) setActivePersonaId(nuevasPersonas[0].id)
   }
 
@@ -942,11 +942,33 @@ function CobroModal({ order, onCancel, onConfirm }) {
     setAssignments({ ...assignments, [nombre]: arr })
   }
 
+  // NUEVO: toggle para marcar una persona como "que se va a pagar"
+  const togglePersonaAPagar = (personaId) => {
+    const nueva = new Set(personasAPagar)
+    if (nueva.has(personaId)) {
+      nueva.delete(personaId)
+    } else {
+      nueva.add(personaId)
+    }
+    setPersonasAPagar(nueva)
+  }
+
   const restantes = unassignedCount()
+  // NUEVO: calcular total a cobrar solo de las personas seleccionadas
+  const totalAPagarAhora = personas
+    .filter((p) => personasAPagar.has(p.id))
+    .reduce((sum, p) => sum + personaTotal(p.id), 0)
 
   const handleConfirmDividir = () => {
     if (restantes > 0) return
+    if (personasAPagar.size === 0) {
+      alert('Seleccioná al menos una persona para cobrar')
+      return
+    }
+
+    // MODIFICADO: crear pagos SOLO de las personas seleccionadas
     const payments = personas
+      .filter((p) => personasAPagar.has(p.id))
       .map((p, idx) => {
         const monto = personaTotal(p.id)
         const itemsPersona = items
@@ -956,9 +978,12 @@ function CobroModal({ order, onCancel, onConfirm }) {
           })
           .filter(Boolean)
         if (feeShare > 0) itemsPersona.push({ nombre: 'Envío express', precio: feeShare, qty: 1 })
-        return { persona: `Persona ${idx + 1}`, metodo: p.metodo, monto, items: itemsPersona }
+        // NUEVO: incluir índice de persona original para mejor identificación
+        const personaIdx = personas.findIndex((x) => x.id === p.id)
+        return { persona: `Persona ${personaIdx + 1}`, metodo: p.metodo, monto, items: itemsPersona }
       })
       .filter((p) => p.monto > 0)
+
     onConfirm({ paymentMethod: 'dividido', splitPayment: true, payments, envioExpress: expressFee || null })
   }
 
@@ -1111,6 +1136,35 @@ function CobroModal({ order, onCancel, onConfirm }) {
         ) : (
           <>
             <p className="split-hint">Elegí quién paga y tocá los platos que le tocan a esa persona.</p>
+
+            {/* NUEVO: selector de "quiénes se van a pagar" */}
+            <div className="split-personas-selector">
+              <p className="split-hint" style={{ fontSize: 12, marginBottom: 8 }}>
+                👉 Toca las personas que se van a pagar AHORA (los demás quedan sin cobrar):
+              </p>
+              <div className="split-personas-checkout">
+                {personas.map((p, idx) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className={`persona-checkout ${personasAPagar.has(p.id) ? 'selected' : 'deselected'}`}
+                    onClick={() => togglePersonaAPagar(p.id)}
+                  >
+                    <span className="p-checkbox">{personasAPagar.has(p.id) ? '✓' : ' '}</span>
+                    <span className="p-name">
+                      <span className="p-dot" style={{ background: PERSONA_COLORS[idx % PERSONA_COLORS.length] }} />
+                      Persona {idx + 1}
+                    </span>
+                    <span className="p-total">{formatColones(personaTotal(p.id))}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="split-hint" style={{ fontSize: 12, marginTop: 8, color: '#666' }}>
+                💰 Total a cobrar ahora: <strong>{formatColones(totalAPagarAhora)}</strong>
+              </p>
+            </div>
+
+            {/* Original: selector de persona activa y asignación de items */}
             <div className="split-personas">
               {personas.map((p, idx) => (
                 <button
@@ -1211,7 +1265,7 @@ function CobroModal({ order, onCancel, onConfirm }) {
                 Cancelar
               </button>
               <button type="button" className="btn-primary" disabled={restantes > 0} onClick={handleConfirmDividir}>
-                Cobrar {formatColones(totalACobrar)}
+                Cobrar {formatColones(totalAPagarAhora)}
               </button>
             </div>
           </>
