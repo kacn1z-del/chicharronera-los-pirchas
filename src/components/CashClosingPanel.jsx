@@ -58,6 +58,22 @@ function addToPaymentTotals(totals, order) {
   totals[metodo] = (totals[metodo] || 0) + Number(order.total || 0)
 }
 
+// Extrae detalles de pagos divididos para guardarlos en el cierre
+function extractSplitPaymentDetails(order) {
+  if (!order.splitPayment || !Array.isArray(order.payments)) return null
+  return {
+    orderId: order.id,
+    mesa: order.mesa || null,
+    clientName: order.clientName || null,
+    total: order.total,
+    payments: order.payments.map((p) => ({
+      persona: p.persona,
+      metodo: p.metodo,
+      monto: p.monto,
+    })),
+  }
+}
+
 async function commitInChunks(items, buildOp) {
   // Firestore permite máximo 500 escrituras por batch. Partimos en bloques de
   // 400 para dejar margen (el batch también incluye el documento del cierre).
@@ -76,6 +92,7 @@ export default function CashClosingPanel() {
   const [closing, setClosing] = useState(false)
   const [error, setError] = useState(null)
   const [expandedCierre, setExpandedCierre] = useState(null)
+  const [expandedSplitPayment, setExpandedSplitPayment] = useState(null)
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -110,13 +127,21 @@ export default function CashClosingPanel() {
     const porOrigen = {}
     const porPago = {}
     let totalGeneral = 0
+    const splitPaymentDetails = []
+
     pendientes.forEach((order) => {
       const origen = orderOrigen(order)
       porOrigen[origen] = (porOrigen[origen] || 0) + Number(order.total || 0)
       addToPaymentTotals(porPago, order)
       totalGeneral += Number(order.total || 0)
+
+      // Extraer detalles de pagos divididos
+      const splitDetail = extractSplitPaymentDetails(order)
+      if (splitDetail) {
+        splitPaymentDetails.push(splitDetail)
+      }
     })
-    return { porOrigen, porPago, totalGeneral, cantidad: pendientes.length }
+    return { porOrigen, porPago, totalGeneral, cantidad: pendientes.length, splitPaymentDetails }
   }, [pendientes])
 
   const handleCerrarCaja = async () => {
@@ -141,6 +166,7 @@ export default function CashClosingPanel() {
         cantidadPedidos: resumen.cantidad,
         totalesPorOrigen: resumen.porOrigen,
         totalesPorMetodoPago: resumen.porPago,
+        splitPaymentDetails: resumen.splitPaymentDetails,
         ordenesIds: pendientes.map((o) => o.id),
         createdAt: serverTimestamp(),
       })
@@ -260,6 +286,42 @@ export default function CashClosingPanel() {
                         </div>
                       ))}
                     </div>
+
+                    {/* Detalles de pagos divididos */}
+                    {Array.isArray(c.splitPaymentDetails) && c.splitPaymentDetails.length > 0 && (
+                      <div className="split-payments-section">
+                        <h4 className="split-payments-title">📋 Pagos Divididos ({c.splitPaymentDetails.length})</h4>
+                        <div className="split-payments-list">
+                          {c.splitPaymentDetails.map((detail, idx) => (
+                            <div key={idx} className="split-payment-item">
+                              <button
+                                type="button"
+                                className="split-payment-header"
+                                onClick={() => setExpandedSplitPayment((cur) => (cur === `${c.id}-${idx}` ? null : `${c.id}-${idx}`))}
+                              >
+                                <span>
+                                  {detail.mesa ? `Mesa ${detail.mesa}` : detail.clientName || 'Pedido'}
+                                  {' · '}
+                                  {formatColones(detail.total)}
+                                </span>
+                                <span>{expandedSplitPayment === `${c.id}-${idx}` ? '▲' : '▼'}</span>
+                              </button>
+                              {expandedSplitPayment === `${c.id}-${idx}` && (
+                                <ul className="split-payment-details">
+                                  {detail.payments.map((p, pIdx) => (
+                                    <li key={pIdx} className="split-payment-detail-row">
+                                      <span className="split-payment-persona">{p.persona}</span>
+                                      <span className="split-payment-method">{PAYMENT_LABELS[p.metodo] || p.metodo}</span>
+                                      <span className="split-payment-monto">{formatColones(p.monto)}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </li>
@@ -270,4 +332,3 @@ export default function CashClosingPanel() {
     </div>
   )
 }
-
