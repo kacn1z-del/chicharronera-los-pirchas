@@ -93,6 +93,7 @@ export default function CashClosingPanel() {
   const [error, setError] = useState(null)
   const [expandedCierre, setExpandedCierre] = useState(null)
   const [expandedSplitPayment, setExpandedSplitPayment] = useState(null)
+  const [fondoCaja, setFondoCaja] = useState(0)
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -146,11 +147,13 @@ export default function CashClosingPanel() {
 
   const handleCerrarCaja = async () => {
     if (pendientes.length === 0) return
+
+    const montoARetirar = resumen.totalGeneral - Number(fondoCaja || 0)
     if (
       !window.confirm(
-        `¿Cerrar caja con ${pendientes.length} pedido(s) por un total de ${formatColones(
+        `¿Cerrar caja con ${pendientes.length} pedido(s)?\n\nTotal general: ${formatColones(
           resumen.totalGeneral
-        )}? Esto no se puede deshacer.`
+        )}\nFondo de caja: ${formatColones(fondoCaja)}\nA retirar: ${formatColones(montoARetirar)}\n\nEsto no se puede deshacer.`
       )
     )
       return
@@ -168,6 +171,8 @@ export default function CashClosingPanel() {
         totalesPorMetodoPago: resumen.porPago,
         splitPaymentDetails: resumen.splitPaymentDetails,
         ordenesIds: pendientes.map((o) => o.id),
+        fondoCaja: Number(fondoCaja || 0),
+        montoARetirar: montoARetirar,
         createdAt: serverTimestamp(),
       })
       await firstBatch.commit()
@@ -176,6 +181,9 @@ export default function CashClosingPanel() {
       await commitInChunks(pendientes, (batch, order) => {
         batch.update(doc(db, 'orders', order.id), { cierreId: cierreRef.id })
       })
+
+      // Reset fondo después de cerrar
+      setFondoCaja(0)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -243,6 +251,38 @@ export default function CashClosingPanel() {
               </tbody>
             </table>
 
+            <div className="cash-fondo-section">
+              <div className="fondo-input-group">
+                <label htmlFor="fondo-caja">💰 Fondo de caja para el siguiente día</label>
+                <input
+                  id="fondo-caja"
+                  type="number"
+                  min="0"
+                  step="100"
+                  value={fondoCaja}
+                  onChange={(e) => setFondoCaja(Number(e.target.value) || 0)}
+                  placeholder="0"
+                  disabled={closing}
+                  className="fondo-input"
+                />
+              </div>
+
+              <div className="fondo-summary">
+                <div className="fondo-row">
+                  <span>Total general:</span>
+                  <span className="mono">{formatColones(resumen.totalGeneral)}</span>
+                </div>
+                <div className="fondo-row">
+                  <span>Fondo de caja:</span>
+                  <span className="mono">{formatColones(fondoCaja)}</span>
+                </div>
+                <div className="fondo-row fondo-row--total">
+                  <span>💵 A retirar:</span>
+                  <span className="mono">{formatColones(resumen.totalGeneral - Number(fondoCaja || 0))}</span>
+                </div>
+              </div>
+            </div>
+
             <button className="btn-primary" onClick={handleCerrarCaja} disabled={closing}>
               {closing ? 'Cerrando caja…' : `Cerrar caja (${formatColones(resumen.totalGeneral)})`}
             </button>
@@ -270,6 +310,25 @@ export default function CashClosingPanel() {
                 </button>
                 {expandedCierre === c.id && (
                   <div className="cash-history__detail">
+                    <div className="fondo-summary">
+                      <div className="fondo-row">
+                        <span>Total general:</span>
+                        <span className="mono">{formatColones(c.totalGeneral)}</span>
+                      </div>
+                      {c.fondoCaja > 0 && (
+                        <>
+                          <div className="fondo-row">
+                            <span>Fondo de caja:</span>
+                            <span className="mono">{formatColones(c.fondoCaja)}</span>
+                          </div>
+                          <div className="fondo-row fondo-row--total">
+                            <span>💵 Retirado:</span>
+                            <span className="mono">{formatColones(c.montoARetirar)}</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
                     <div className="cash-summary-grid">
                       {Object.entries(c.totalesPorOrigen || {}).map(([origen, monto]) => (
                         <div className="cash-summary-card cash-summary-card--muted" key={origen}>
