@@ -5,15 +5,15 @@ import { getAuth } from 'firebase/auth'
 import { getStorage } from 'firebase/storage'
 import { getAnalytics, isSupported } from 'firebase/analytics'
 
-// Configuración del proyecto "Acosta Food" en Firebase
+// Configuración del proyecto "Los Pirchas" en Firebase
 const firebaseConfig = {
   apiKey: 'AIzaSyBLVHsF0VqPorPkK0auaWUH_4-k-loC6iU',
   authDomain: 'acosta-food.firebaseapp.com',
   projectId: 'acosta-food',
   storageBucket: 'acosta-food.firebasestorage.app',
   messagingSenderId: '605529235094',
-  appId: '1:605529235094:web:035dff54f04af00654acb7',
-  measurementId: 'G-QWEN1MWXXZ',
+  appId: '1:605529235094:web:aea81c6e7106de5d54acb7',
+  measurementId: 'G-B86LDJPWRM',
 }
 
 export const app = initializeApp(firebaseConfig)
