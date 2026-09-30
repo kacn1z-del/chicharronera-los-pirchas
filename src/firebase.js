@@ -1,60 +1,252 @@
-import { initializeApp } from 'firebase/app'
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore'
-import { getDatabase } from 'firebase/database'
-import { getAuth } from 'firebase/auth'
-import { getStorage } from 'firebase/storage'
-import { getAnalytics, isSupported } from 'firebase/analytics'
+import { useEffect, useState } from 'react'
+import { collection, onSnapshot } from 'firebase/firestore'
+import { db } from './firebase'
+import { useAuth } from './hooks/useAuth'
+import useNewOrderSound from './hooks/useNewOrderSound'
+import LoginScreen from './components/LoginScreen'
+import Sidebar from './components/Sidebar'
+import TopBar from './components/TopBar'
+import MetricCard from './components/MetricCard'
+import OrdersTable from './components/OrdersTable'
+import RestaurantsPanel from './components/RestaurantsPanel'
+import RidersPanel from './components/RidersPanel'
+import UsersPanel from './components/UsersPanel'
+import MenuImportPanel from './components/MenuImportPanel'
+import CategoryOrderEditor from './components/CategoryOrderEditor'
+import MenuEditor from './components/MenuEditor'
+import InventoryPanel from './components/InventoryPanel'
+import LowStockBanner from './components/LowStockBanner'
+import FloorPlanPanel from './components/FloorPlanPanel'
+import CashClosingPanel from './components/CashClosingPanel'
+import PhoneOrderPanel from './components/PhoneOrderPanel'
+import StaffPanel from './components/StaffPanel'
+import CocinaView from './components/CocinaView'
+import BebidasView from './components/BebidasView'
+import InstallPrompt from './components/InstallPrompt'
+import './App.css'
 
-// Configuración del proyecto "Los Pirchas" en Firebase
-const firebaseConfig = {
-  apiKey: 'AIzaSyBLVHsF0VqPorPkK0auaWUH_4-k-loC6iU',
-  authDomain: 'acosta-food.firebaseapp.com',
-  projectId: 'acosta-food',
-  storageBucket: 'acosta-food.firebasestorage.app',
-  messagingSenderId: '605529235094',
-  appId: '1:605529235094:web:aea81c6e7106de5d54acb7',
-  measurementId: 'G-B86LDJPWRM',
+function useCollectionCount(name) {
+  const [count, setCount] = useState(null)
+  useEffect(() => {
+    const unsub = onSnapshot(
+      collection(db, name),
+      (snapshot) => setCount(snapshot.size),
+      () => setCount(null)
+    )
+    return () => unsub()
+  }, [name])
+  return count
 }
 
-export const app = initializeApp(firebaseConfig)
+export default function App() {
+  const { user, role, nombre, loading, isAdmin, isCocina, isBebidas, logout } = useAuth()
+  const [section, setSection] = useState('resumen')
+  const [firestoreConnected, setFirestoreConnected] = useState(true)
+  const [browserOnline, setBrowserOnline] = useState(navigator.onLine)
+  const [showPhoneOrder, setShowPhoneOrder] = useState(false)
 
-// Caché persistente: guarda los datos en el dispositivo (IndexedDB) para que
-// el panel siga funcionando sin internet — se puede seguir viendo mesas,
-// pedidos y menú, y los cambios que se hagan (marcar pedidos, cerrar caja,
-// etc.) quedan en cola y se mandan solos apenas vuelva la señal.
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-}, 'default')
+  // Suena una campanita en cualquier pantalla del panel (Resumen, Salón,
+  // Pedidos, Cocina, etc.) cada vez que entra un pedido nuevo a Firestore.
+  useNewOrderSound(!!user && !!role)
 
-export const auth = getAuth(app)
-export const storage = getStorage(app)
+  useEffect(() => {
+    const goOnline = () => setBrowserOnline(true)
+    const goOffline = () => setBrowserOnline(false)
+    window.addEventListener('online', goOnline)
+    window.addEventListener('offline', goOffline)
+    return () => {
+      window.removeEventListener('online', goOnline)
+      window.removeEventListener('offline', goOffline)
+    }
+  }, [])
 
-// Firestore NO resuelve las promesas de escritura (addDoc/setDoc/updateDoc)
-// mientras no hay conexión — aunque el dato ya quedó guardado localmente y
-// se manda solo apenas vuelva la señal. Por eso, si estamos offline, no se
-// espera esa promesa (evita que la pantalla se quede "colgada"); si hay
-// conexión, sí se espera, para detectar errores reales al toque.
-//
-// Uso: const { queued } = await writeAndContinue(updateDoc(ref, data))
-export async function writeAndContinue(promise) {
-  if (navigator.onLine) {
-    await promise
-    return { queued: false }
+  // "Conectado" solo si el navegador tiene señal Y Firestore confirma que
+  // está recibiendo datos en vivo — cualquiera de los dos fallando cuenta
+  // como sin conexión.
+  const connected = browserOnline && firestoreConnected
+
+  const ordersCount = useCollectionCount('orders')
+  const restaurantsCount = useCollectionCount('restaurants')
+  const usersCount = useCollectionCount('users')
+
+  if (loading) {
+    return <div className="login-screen"><p style={{ color: '#fbf4ea' }}>Cargando…</p></div>
   }
-  promise.catch(() => {}) // ya quedó en la cola local; evita "unhandled rejection"
-  return { queued: true }
-}
 
-// La Realtime Database es opcional — solo se activa si el proyecto la tiene habilitada
-export let realtimeDB = null
-try {
-  realtimeDB = getDatabase(app)
-} catch (err) {
-  console.warn('Realtime Database no está configurada en este proyecto todavía.')
-}
+  if (!user || !role) {
+    return (
+      <>
+        <InstallPrompt appName="Pirchas Admin" />
+        <LoginScreen />
+      </>
+    )
+  }
 
-// Analytics solo funciona en el navegador (no en SSR) y solo si el entorno lo soporta
-export let analytics = null
-isSupported().then((supported) => {
-  if (supported) analytics = getAnalytics(app)
-})
+  // Cocina tiene su propia pantalla dedicada, sin sidebar ni el resto del
+  // panel de administración — solo pedidos con comida pendiente.
+  if (isCocina) {
+    return (
+      <>
+        <InstallPrompt appName="Pirchas Admin" />
+        <CocinaView nombre={nombre} onLogout={logout} />
+      </>
+    )
+  }
+
+  // Bebidas es la pantalla hermana de cocina, para lo mismo pero con las
+  // bebidas — igual de dedicada, sin sidebar ni el resto del panel.
+  if (isBebidas) {
+    return (
+      <>
+        <InstallPrompt appName="Pirchas Admin" />
+        <BebidasView nombre={nombre} onLogout={logout} />
+      </>
+    )
+  }
+
+  // "equipo" es solo para admin — si un invitado quedó parado ahí (por
+  // ejemplo, si perdió el rol de admin mientras lo tenía abierto), lo mandamos
+  // de vuelta al resumen.
+  const activeSection = section === 'equipo' && !isAdmin ? 'resumen' : section
+
+  return (
+    <div className="app-shell">
+      <InstallPrompt appName="Pirchas Admin" />
+      <div className="canopy canopy--one" aria-hidden="true" />
+      <div className="canopy canopy--two" aria-hidden="true" />
+
+      <Sidebar
+        active={activeSection}
+        onNavigate={setSection}
+        isAdmin={isAdmin}
+        nombre={nombre}
+        onLogout={logout}
+      />
+
+      <div className="app-main">
+        <TopBar section={activeSection} connected={connected} nombre={nombre} onLogout={logout} />
+
+        <LowStockBanner />
+
+        <main className="app-content">
+          {activeSection === 'resumen' && (
+            <>
+              <div className="metrics-grid">
+                <MetricCard
+                  label="Pedidos totales"
+                  value={ordersCount ?? '—'}
+                  hint="Documentos en la colección orders"
+                />
+                <MetricCard
+                  label="Restaurantes"
+                  value={restaurantsCount ?? '—'}
+                  hint="Locales registrados"
+                  tone="mint"
+                />
+                <MetricCard
+                  label="Usuarios"
+                  value={usersCount ?? '—'}
+                  hint="Clientes registrados"
+                  tone="amber"
+                />
+              </div>
+
+              <section className="section-block">
+                <h2 className="section-block__title">Pedidos recientes</h2>
+                <OrdersTable onConnectionChange={setFirestoreConnected} isAdmin={isAdmin} />
+              </section>
+            </>
+          )}
+
+          {activeSection === 'salon' && (
+            <section className="section-block">
+              <h2 className="section-block__title">Distribución del salón</h2>
+              <FloorPlanPanel />
+            </section>
+          )}
+
+          {activeSection === 'pedidos' && (
+            <section className="section-block">
+              <div className="section-block__head">
+                <h2 className="section-block__title">Todos los pedidos</h2>
+                <button className="btn-primary" onClick={() => setShowPhoneOrder((v) => !v)}>
+                  {showPhoneOrder ? 'Cancelar' : '+ Pedido telefónico'}
+                </button>
+              </div>
+              {showPhoneOrder && (
+                <PhoneOrderPanel
+                  onCreated={() => setShowPhoneOrder(false)}
+                  onCancel={() => setShowPhoneOrder(false)}
+                />
+              )}
+              <OrdersTable onConnectionChange={setFirestoreConnected} isAdmin={isAdmin} />
+            </section>
+          )}
+
+          {activeSection === 'caja' && (
+            <section className="section-block">
+              <h2 className="section-block__title">Cierre de caja</h2>
+              <CashClosingPanel />
+            </section>
+          )}
+
+          {activeSection === 'restaurantes' && (
+            <section className="section-block">
+              <h2 className="section-block__title">Restaurantes registrados</h2>
+              <RestaurantsPanel />
+            </section>
+          )}
+
+          {activeSection === 'repartidores' && (
+            <section className="section-block">
+              <h2 className="section-block__title">Repartidores en línea</h2>
+              <RidersPanel />
+            </section>
+          )}
+
+          {activeSection === 'usuarios' && (
+            <section className="section-block">
+              <h2 className="section-block__title">Usuarios registrados</h2>
+              <UsersPanel />
+            </section>
+          )}
+
+          {activeSection === 'menu' && (
+            <section className="section-block">
+              <h2 className="section-block__title">Administrar menú</h2>
+              {!isAdmin && (
+                <p className="readonly-banner">
+                  Modo solo lectura — pedile a un administrador que haga cambios en el menú.
+                </p>
+              )}
+              {isAdmin && <MenuImportPanel />}
+              {isAdmin && <div style={{ height: '20px' }} />}
+              {isAdmin && <CategoryOrderEditor />}
+              {isAdmin && <div style={{ height: '20px' }} />}
+              <MenuEditor isAdmin={isAdmin} />
+            </section>
+          )}
+
+          {activeSection === 'inventario' && (
+            <section className="section-block">
+              <h2 className="section-block__title">Inventario de productos</h2>
+              {!isAdmin && (
+                <p className="readonly-banner">
+                  Modo solo lectura — pedile a un administrador que haga cambios en el inventario.
+                </p>
+              )}
+              <InventoryPanel isAdmin={isAdmin} />
+            </section>
+          )}
+
+          {activeSection === 'equipo' && isAdmin && (
+            <section className="section-block">
+              <h2 className="section-block__title">Usuarios del equipo</h2>
+              <StaffPanel />
+            </section>
+          )}
+        </main>
+      </div>
+    </div>
+  )
+}
