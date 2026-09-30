@@ -149,3 +149,137 @@
     color: #e0e0e0;
   }
 }
+
+/* Estilos para fondo de caja */
+.cash-fondo-section {
+  margin: 20px 0;
+  padding: 20px;
+  background: rgba(63, 152, 104, 0.08);
+  border-radius: 8px;
+  border-left: 4px solid #3f9868;
+}
+
+.fondo-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.fondo-input-group label {
+  font-weight: 600;
+  font-size: 14px;
+  color: #333;
+}
+
+.fondo-input {
+  padding: 12px;
+  font-size: 16px;
+  border: 2px solid #3f9868;
+  border-radius: 6px;
+  font-family: monospace;
+  font-weight: 500;
+  color: #333;
+  background: white;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.fondo-input:focus {
+  outline: none;
+  border-color: #2d7a52;
+  box-shadow: 0 0 0 3px rgba(63, 152, 104, 0.1);
+}
+
+.fondo-input:disabled {
+  background: #f0f0f0;
+  border-color: #ddd;
+  color: #999;
+  cursor: not-allowed;
+}
+
+.fondo-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: white;
+  border-radius: 6px;
+}
+
+.fondo-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  color: #666;
+}
+
+.fondo-row .mono {
+  font-family: monospace;
+  font-weight: 500;
+  color: #333;
+}
+
+.fondo-row--total {
+  padding-top: 8px;
+  border-top: 1px solid #e0e0e0;
+  color: #333;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.fondo-row--total .mono {
+  color: #3f9868;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .cash-fondo-section {
+    background: rgba(95, 179, 136, 0.08);
+    border-left-color: #5fb388;
+  }
+
+  .fondo-input-group label {
+    color: #e0e0e0;
+  }
+
+  .fondo-input {
+    border-color: #5fb388;
+    background: #2a2a2a;
+    color: #e0e0e0;
+  }
+
+  .fondo-input:focus {
+    border-color: #7ec9a0;
+    box-shadow: 0 0 0 3px rgba(95, 179, 136, 0.15);
+  }
+
+  .fondo-input:disabled {
+    background: #333;
+    border-color: #444;
+    color: #666;
+  }
+
+  .fondo-summary {
+    background: #2a2a2a;
+  }
+
+  .fondo-row {
+    color: #999;
+  }
+
+  .fondo-row .mono {
+    color: #e0e0e0;
+  }
+
+  .fondo-row--total {
+    border-top-color: #444;
+    color: #e0e0e0;
+  }
+
+  .fondo-row--total .mono {
+    color: #5fb388;
+  }
+}
