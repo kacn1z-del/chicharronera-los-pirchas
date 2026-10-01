@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app'
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore'
 import { getDatabase } from 'firebase/database'
-import { getAuth } from 'firebase/auth'
+import { getAuth, setPersistence, browserSessionPersistence } from 'firebase/auth'
 import { getStorage } from 'firebase/storage'
 import { getAnalytics, isSupported } from 'firebase/analytics'
 
@@ -27,6 +27,15 @@ export const db = initializeFirestore(app, {
 }, 'default')
 
 export const auth = getAuth(app)
+
+// IMPORTANTE: Configura Auth para usar sesión de navegador en lugar de localStorage persistente.
+// Esto significa que la sesión se limpia cuando se cierra el navegador o tab,
+// y el usuario debe loguearse de nuevo. Esto previene que usuarios no autorizados
+// accedan al panel sin credenciales.
+setPersistence(auth, browserSessionPersistence).catch((err) => {
+  console.error('Error configurando persistencia de auth:', err)
+})
+
 export const storage = getStorage(app)
 
 // Firestore NO resuelve las promesas de escritura (addDoc/setDoc/updateDoc)
