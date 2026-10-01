@@ -1010,6 +1010,55 @@
   font-size: 9px;
 }
 
+/* Colores base por tipo de mesa */
+.fp-item--1to19 {
+  border: 2px solid #FFD700;
+  background: linear-gradient(160deg, #FFF8DC, #FFE74C);
+  color: #333;
+}
+
+.fp-item--1to19.busy {
+  background: linear-gradient(160deg, #FF6B6B, #FF4444);
+  border-color: #FF2222;
+  color: white;
+}
+
+.fp-item--normal {
+  border: 2px solid #2E6F40;
+  background: linear-gradient(160deg, #4A9D6F, #2E6F40);
+  color: white;
+}
+
+.fp-item--normal.busy {
+  background: linear-gradient(160deg, #FF8C42, #FF6B00);
+  border-color: #FF4500;
+  color: white;
+}
+
+.fp-item--llevar {
+  border: 2px solid #7C3AED;
+  background: linear-gradient(160deg, #A78BFA, #7C3AED);
+  color: white;
+}
+
+.fp-item--llevar.busy {
+  background: linear-gradient(160deg, #EC4899, #DB2777);
+  border-color: #BE185D;
+  color: white;
+}
+
+.fp-item--express {
+  border: 2px solid #0000FF;
+  background: linear-gradient(160deg, #4D4DFF, #0000CC);
+  color: white;
+}
+
+.fp-item--express.busy {
+  background: linear-gradient(160deg, #FF3333, #CC0000);
+  border-color: #990000;
+  color: white;
+}
+
 /* Detalle del pedido al tocar una mesa ocupada */
 .fp-detail-overlay {
   position: fixed;
@@ -1983,4 +2032,78 @@
   padding: 4px;
   cursor: pointer;
   flex: 0 0 auto;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   PAGOS PARCIALES — Estilo para badge de "Pagado Parcialmente"
+   ───────────────────────────────────────────────────────────────────────── */
+
+.badge--orange {
+  background: rgba(245, 158, 11, 0.18);
+  color: #a86a1c;
+  font-weight: 600;
+}
+
+@media (prefers-color-scheme: dark) {
+  .badge--orange {
+    background: rgba(217, 119, 6, 0.18);
+    color: #fbbf24;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   NUEVOS ESTILOS — Guardar Borrador + Registro de Pagos
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Columna de Pagos en tabla de órdenes */
+.orders-table col.col-pagos {
+  width: 12%;
+}
+
+/* Botón secundario (Guardar Borrador) */
+.btn-secondary {
+  background: rgba(63, 122, 200, 0.14);
+  color: #2f5aa8;
+  border: 1px solid rgba(63, 122, 200, 0.3);
+  padding: 11px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  background: rgba(63, 122, 200, 0.2);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Estilos para desglose de pagos */
+.payment-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+}
+
+.payment-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(16, 36, 27, 0.06);
+}
+
+.payment-row:last-child {
+  border-bottom: none;
+}
+
+.payment-method {
+  font-size: 10px;
+  color: var(--ink-400);
+  margin-top: 2px;
 }
