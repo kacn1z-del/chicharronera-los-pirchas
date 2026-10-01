@@ -6,6 +6,7 @@
    - Breakpoints mejorados (640px, 768px, 1024px, 1440px)
    - Canopy ocultos en mobile
    - Padding dinámico según viewport
+   - Cierre de caja con responsividad mejorada
    ============================================================ */
 
 .app-shell {
@@ -1508,7 +1509,7 @@
   margin: -4px 0 0;
 }
 
-/* Cierre de caja */
+/* Cierre de caja - VERSIÓN CONSERVADORA */
 .cash-closing {
   display: flex;
   flex-direction: column;
@@ -1542,7 +1543,7 @@
 }
 
 .cash-summary-card__label {
-  font-size: 10px;
+  font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--ink-600);
@@ -1588,16 +1589,61 @@
   cursor: pointer;
 }
 
+.cash-history__detail {
+  padding: 0 12px 12px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Tablet: ajustes sutiles */
 @media (min-width: 768px) {
+  .cash-summary-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+  }
+
+  .cash-summary-card {
+    padding: 16px 14px;
+  }
+
+  .cash-summary-card__label {
+    font-size: 10px;
+    margin-bottom: 8px;
+  }
+
+  .cash-summary-card__value {
+    font-size: 24px;
+  }
+
   .cash-history__row {
     grid-template-columns: 1fr auto auto auto;
     gap: 14px;
   }
 }
 
-.cash-history__detail {
-  padding: 0 12px 12px;
-  background: rgba(255, 255, 255, 0.3);
+/* Desktop: como antes */
+@media (min-width: 1024px) {
+  .cash-summary-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+  }
+
+  .cash-summary-card {
+    padding: 20px 22px;
+  }
+
+  .cash-summary-card__label {
+    font-size: 12px;
+    margin-bottom: 10px;
+  }
+
+  .cash-summary-card__value {
+    font-size: 32px;
+  }
+
+  .cash-history__row {
+    grid-template-columns: 1fr auto auto auto;
+    gap: 14px;
+  }
 }
 
 /* Panel de pedido telefónico */
