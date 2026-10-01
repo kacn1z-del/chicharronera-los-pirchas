@@ -24,11 +24,14 @@ export default function TopBar({ section, connected, nombre, onLogout }) {
           <span className="topbar__dot" aria-hidden="true" />
           {connected ? 'Conectado en vivo' : 'Sin conexión con Firestore'}
         </div>
-        {nombre && (
-          <button type="button" className="topbar__logout" onClick={onLogout}>
-            {nombre} · Salir
-          </button>
-        )}
+        <button
+          type="button"
+          className="topbar__logout"
+          onClick={onLogout}
+          title="Cerrar sesión"
+        >
+          {nombre ? `${nombre} · Salir` : 'Salir'}
+        </button>
       </div>
     </header>
   )
