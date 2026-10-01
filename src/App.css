@@ -35,7 +35,7 @@
 }
 
 /* ============================================================
-   LAYOUT PRINCIPAL: MOBILE-FIRST
+   LAYOUT PRINCIPAL
    ============================================================ */
 .app-shell {
   position: relative;
@@ -46,7 +46,7 @@
   background: var(--paper);
 }
 
-/* Decorativos de fondo - Ocultos en mobile, visibles en desktop */
+/* Decorativos de fondo - solo en desktop */
 .canopy {
   position: fixed;
   border-radius: 50%;
@@ -74,7 +74,6 @@
   opacity: 0.55;
 }
 
-/* Mostrar canopy solo en laptops */
 @media (min-width: 1024px) {
   .canopy {
     display: block;
@@ -82,7 +81,7 @@
 }
 
 /* ============================================================
-   SIDEBAR - MOBILE-FIRST
+   SIDEBAR
    ============================================================ */
 .sidebar {
   position: relative;
@@ -98,7 +97,6 @@
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   max-height: auto;
-  scroll-behavior: smooth;
 }
 
 .sidebar__brand {
@@ -160,6 +158,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   flex-shrink: 0;
+  cursor: pointer;
 }
 
 .sidebar__link:hover {
@@ -188,7 +187,7 @@
   font-size: 11px;
 }
 
-/* Tablet: Sidebar horizontal expandido */
+/* Tablet y desktop */
 @media (min-width: 768px) {
   .sidebar {
     padding: 12px 14px;
@@ -212,7 +211,7 @@
   }
 
   .sidebar {
-    width: 240px;
+    width: 232px;
     flex-direction: column;
     padding: 24px 16px;
     gap: 28px;
@@ -251,7 +250,7 @@
 }
 
 /* ============================================================
-   MAIN AREA - MOBILE-FIRST
+   MAIN AREA
    ============================================================ */
 .app-main {
   position: relative;
@@ -347,7 +346,6 @@
   background: var(--red-500);
 }
 
-/* Tablet: Topbar mejorado */
 @media (min-width: 768px) {
   .topbar {
     padding: 16px 18px 10px;
@@ -382,7 +380,6 @@
   }
 }
 
-/* Desktop: Topbar con más espacio */
 @media (min-width: 1024px) {
   .topbar {
     padding: 28px 36px 12px;
@@ -396,11 +393,6 @@
   .topbar__logout {
     padding: 12px 20px;
     font-size: 14px;
-  }
-
-  .topbar__status {
-    font-size: 12px;
-    padding: 8px 14px;
   }
 }
 
@@ -426,7 +418,7 @@
 }
 
 /* ============================================================
-   MÉTRICAS Y GRILLAS - MOBILE-FIRST
+   MÉTRICAS Y GRILLAS
    ============================================================ */
 .metrics-grid {
   display: grid;
@@ -492,8 +484,8 @@
 
   .metric-card__hint {
     display: block;
-    margin-top: 6px;
     font-size: 10px;
+    margin-top: 6px;
   }
 }
 
@@ -522,7 +514,7 @@
 }
 
 /* ============================================================
-   TABLA DE ÓRDENES - MOBILE-FIRST
+   TABLA DE ÓRDENES
    ============================================================ */
 .section-block {
   display: flex;
@@ -553,7 +545,7 @@
 .panel {
   background: var(--glass-strong);
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -573,7 +565,7 @@
   font-size: 11px;
 }
 
-/* Tabla scrolleable */
+/* Tabla */
 .orders-table {
   width: 100%;
   border-collapse: collapse;
@@ -692,7 +684,6 @@
   font-size: 12px;
 }
 
-/* Tablet: Tabla con más espacio */
 @media (min-width: 768px) {
   .section-block {
     gap: 12px;
@@ -729,9 +720,13 @@
     font-size: 10px;
     padding: 6px 10px;
   }
+
+  .stock-ctrl .action-btn {
+    width: 24px;
+    height: 24px;
+  }
 }
 
-/* Desktop: Tabla completa */
 @media (min-width: 1024px) {
   .section-block {
     gap: 14px;
@@ -762,11 +757,6 @@
   .action-btn {
     font-size: 11px;
     padding: 6px 10px;
-  }
-
-  .stock-ctrl .action-btn {
-    width: 24px;
-    height: 24px;
   }
 }
 
@@ -810,7 +800,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   padding: 6px 12px;
   border-radius: var(--radius-sm);
@@ -912,16 +902,6 @@
   justify-content: center;
   padding: 16px;
   z-index: 100;
-  animation: fadeIn 0.2s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
 }
 
 .modal-card {
@@ -934,18 +914,6 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
-  animation: slideUp 0.3s ease;
-}
-
-@keyframes slideUp {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
 }
 
 .modal-card h3 {
@@ -1117,9 +1085,6 @@
   }
 }
 
-/* ============================================================
-   MENSAJES Y ESTADOS
-   ============================================================ */
 .readonly-banner {
   background: rgba(232, 163, 61, 0.1);
   border: 1px solid rgba(232, 163, 61, 0.3);
