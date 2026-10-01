@@ -45,6 +45,8 @@ export default function App() {
   const [browserOnline, setBrowserOnline] = useState(navigator.onLine)
   const [showPhoneOrder, setShowPhoneOrder] = useState(false)
 
+  // Suena una campanita en cualquier pantalla del panel (Resumen, Salón,
+  // Pedidos, Cocina, etc.) cada vez que entra un pedido nuevo a Firestore.
   useNewOrderSound(!!user && !!role)
 
   useEffect(() => {
@@ -58,6 +60,9 @@ export default function App() {
     }
   }, [])
 
+  // "Conectado" solo si el navegador tiene señal Y Firestore confirma que
+  // está recibiendo datos en vivo — cualquiera de los dos fallando cuenta
+  // como sin conexión.
   const connected = browserOnline && firestoreConnected
 
   const ordersCount = useCollectionCount('orders')
@@ -77,8 +82,12 @@ export default function App() {
     )
   }
 
-  console.log('DEBUG:', { user: user?.uid?.slice(0, 8), role, isAdmin, isCocina, isBebidas })
+  // DEBUG: Mostrar el rol actual en pantalla (temporal)
+  const debugInfo = `DEBUG: user=${user?.uid?.slice(0, 8)}... role=${role} isAdmin=${isAdmin} isCocina=${isCocina} isBebidas=${isBebidas}`
+  console.log(debugInfo)
 
+  // Cocina tiene su propia pantalla dedicada, sin sidebar ni el resto del
+  // panel de administración — solo pedidos con comida pendiente.
   if (isCocina) {
     return (
       <>
@@ -88,6 +97,8 @@ export default function App() {
     )
   }
 
+  // Bebidas es la pantalla hermana de cocina, para lo mismo pero con las
+  // bebidas — igual de dedicada, sin sidebar ni el resto del panel.
   if (isBebidas) {
     return (
       <>
@@ -97,32 +108,14 @@ export default function App() {
     )
   }
 
+  // "equipo" es solo para admin — si un invitado quedó parado ahí (por
+  // ejemplo, si perdió el rol de admin mientras lo tenía abierto), lo mandamos
+  // de vuelta al resumen.
   const activeSection = section === 'equipo' && !isAdmin ? 'resumen' : section
 
   return (
     <div className="app-shell">
       <InstallPrompt appName="Pirchas Admin" />
-      
-      {/* DEBUG BANNER - Visible en pantalla */}
-      {role && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          background: '#ffeb3b',
-          color: '#000',
-          padding: '10px',
-          fontSize: '14px',
-          zIndex: 9999,
-          textAlign: 'center',
-          fontWeight: 'bold',
-          borderBottom: '2px solid #ff6b6b',
-        }}>
-          🐛 DEBUG: role="{role}" | isCocina={isCocina} | isAdmin={isAdmin} | isBebidas={isBebidas}
-        </div>
-      )}
-
       <div className="canopy canopy--one" aria-hidden="true" />
       <div className="canopy canopy--two" aria-hidden="true" />
 
