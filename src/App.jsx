@@ -18,6 +18,7 @@ import InventoryPanel from './components/InventoryPanel'
 import LowStockBanner from './components/LowStockBanner'
 import FloorPlanPanel from './components/FloorPlanPanel'
 import CashClosingPanel from './components/CashClosingPanel'
+import TopProductsChart from './components/TopProductsChart'
 import PhoneOrderPanel from './components/PhoneOrderPanel'
 import StaffPanel from './components/StaffPanel'
 import CocinaView from './components/CocinaView'
@@ -45,8 +46,6 @@ export default function App() {
   const [browserOnline, setBrowserOnline] = useState(navigator.onLine)
   const [showPhoneOrder, setShowPhoneOrder] = useState(false)
 
-  // Suena una campanita en cualquier pantalla del panel (Resumen, Salón,
-  // Pedidos, Cocina, etc.) cada vez que entra un pedido nuevo a Firestore.
   useNewOrderSound(!!user && !!role)
 
   useEffect(() => {
@@ -60,9 +59,6 @@ export default function App() {
     }
   }, [])
 
-  // "Conectado" solo si el navegador tiene señal Y Firestore confirma que
-  // está recibiendo datos en vivo — cualquiera de los dos fallando cuenta
-  // como sin conexión.
   const connected = browserOnline && firestoreConnected
 
   const ordersCount = useCollectionCount('orders')
@@ -82,12 +78,9 @@ export default function App() {
     )
   }
 
-  // DEBUG: Mostrar el rol actual en pantalla (temporal)
   const debugInfo = `DEBUG: user=${user?.uid?.slice(0, 8)}... role=${role} isAdmin=${isAdmin} isCocina=${isCocina} isBebidas=${isBebidas}`
   console.log(debugInfo)
 
-  // Cocina tiene su propia pantalla dedicada, sin sidebar ni el resto del
-  // panel de administración — solo pedidos con comida pendiente.
   if (isCocina) {
     return (
       <>
@@ -97,8 +90,6 @@ export default function App() {
     )
   }
 
-  // Bebidas es la pantalla hermana de cocina, para lo mismo pero con las
-  // bebidas — igual de dedicada, sin sidebar ni el resto del panel.
   if (isBebidas) {
     return (
       <>
@@ -108,9 +99,6 @@ export default function App() {
     )
   }
 
-  // "equipo" es solo para admin — si un invitado quedó parado ahí (por
-  // ejemplo, si perdió el rol de admin mientras lo tenía abierto), lo mandamos
-  // de vuelta al resumen.
   const activeSection = section === 'equipo' && !isAdmin ? 'resumen' : section
 
   return (
@@ -189,8 +177,16 @@ export default function App() {
 
           {activeSection === 'caja' && (
             <section className="section-block">
-              <h2 className="section-block__title">Cierre de caja</h2>
-              <CashClosingPanel />
+              <h2 className="section-block__title">Cierre de caja y estadísticas</h2>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+                gap: '24px',
+                marginTop: '16px'
+              }}>
+                <CashClosingPanel />
+                <TopProductsChart />
+              </div>
             </section>
           )}
 
