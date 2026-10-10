@@ -12,8 +12,6 @@ export default function TopProductsChart() {
 
   useEffect(() => {
     fetchProductStats();
-    
-    // Refresh cada 5 minutos
     const interval = setInterval(fetchProductStats, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
@@ -22,16 +20,13 @@ export default function TopProductsChart() {
     setLoading(true);
     setError(null);
     try {
-      // Estadísticas del día
       const dayStats = await getTopProducts('day');
       setDayData(dayStats);
-
-      // Estadísticas de la semana
       const weekStats = await getTopProducts('week');
       setWeekData(weekStats);
     } catch (err) {
-      console.error('Error al obtener estadísticas:', err);
-      setError('Error al cargar los datos');
+      console.error('Error:', err);
+      setError('Error al cargar datos');
     }
     setLoading(false);
   };
@@ -39,38 +34,27 @@ export default function TopProductsChart() {
   const getTopProducts = async (period) => {
     const now = new Date();
     let startDate = new Date();
-
-    // Calcular fecha de inicio según período
     if (period === 'day') {
-      // Hoy desde las 00:00
       startDate.setHours(0, 0, 0, 0);
-    } else if (period === 'week') {
-      // Desde el domingo de esta semana a las 00:00
+    } else {
       const dayOfWeek = now.getDay();
       startDate.setDate(now.getDate() - dayOfWeek);
       startDate.setHours(0, 0, 0, 0);
     }
-
     try {
-      // Query: órdenes completadas después de la fecha de inicio
       const q = query(
         collection(db, 'orders'),
         where('status', '==', 'completed'),
         where('timestamp', '>=', Timestamp.fromDate(startDate))
       );
-
       const snapshot = await getDocs(q);
       const productMap = {};
-
-      // Procesar cada orden y sumar cantidades por producto
       snapshot.docs.forEach(doc => {
         const order = doc.data();
-        
         if (order.items && Array.isArray(order.items)) {
           order.items.forEach(item => {
             const productName = item.name || 'Producto desconocido';
             const quantity = parseInt(item.quantity) || 1;
-
             if (!productMap[productName]) {
               productMap[productName] = 0;
             }
@@ -78,9 +62,7 @@ export default function TopProductsChart() {
           });
         }
       });
-
-      // Convertir a array, ordenar y limitar a top 10
-      const sorted = Object.entries(productMap)
+      return Object.entries(productMap)
         .map(([name, quantity]) => ({
           name: name.length > 22 ? name.substring(0, 22) + '...' : name,
           fullName: name,
@@ -88,10 +70,8 @@ export default function TopProductsChart() {
         }))
         .sort((a, b) => b.cantidad - a.cantidad)
         .slice(0, 10);
-
-      return sorted;
     } catch (error) {
-      console.error(`Error en getTopProducts (${period}):`, error);
+      console.error(`Error:`, error);
       return [];
     }
   };
@@ -99,71 +79,208 @@ export default function TopProductsChart() {
   const currentData = activeTab === 'day' ? dayData : weekData;
   const totalVendido = currentData.reduce((sum, item) => sum + item.cantidad, 0);
 
+  const styles = {
+    container: {
+      width: '100%',
+      backgroundColor: '#fff',
+      border: '1px solid #e5e7eb',
+      borderRadius: '8px',
+      padding: '20px',
+      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+      fontFamily: 'system-ui, -apple-system, sans-serif'
+    },
+    header: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: '20px',
+      gap: '16px',
+      flexWrap: 'wrap'
+    },
+    title: {
+      fontSize: '18px',
+      fontWeight: 'bold',
+      color: '#111827',
+      margin: '0 0 8px 0',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px'
+    },
+    subtitle: {
+      fontSize: '12px',
+      color: '#6b7280',
+      margin: '8px 0 0 0'
+    },
+    tabGroup: {
+      display: 'flex',
+      gap: '8px',
+      backgroundColor: '#f3f4f6',
+      padding: '4px',
+      borderRadius: '8px'
+    },
+    tab: (isActive) => ({
+      padding: '10px 16px',
+      borderRadius: '6px',
+      fontWeight: '500',
+      fontSize: '14px',
+      border: 'none',
+      cursor: 'pointer',
+      transition: 'all 0.2s',
+      backgroundColor: isActive ? '#f97316' : 'transparent',
+      color: isActive ? '#fff' : '#4b5563',
+      boxShadow: isActive ? '0 4px 6px rgba(249, 115, 22, 0.2)' : 'none'
+    }),
+    loading: {
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '48px 20px',
+      gap: '8px'
+    },
+    spinner: {
+      width: '32px',
+      height: '32px',
+      border: '4px solid #fed7aa',
+      borderTop: '4px solid #f97316',
+      borderRadius: '50%',
+      animation: 'spin 1s linear infinite'
+    },
+    error: {
+      backgroundColor: '#fef2f2',
+      border: '1px solid #fecaca',
+      color: '#991b1b',
+      padding: '12px 16px',
+      borderRadius: '8px',
+      fontSize: '14px'
+    },
+    chartContainer: {
+      width: '100%',
+      height: '320px',
+      backgroundColor: '#f9fafb',
+      borderRadius: '8px',
+      padding: '12px',
+      marginBottom: '32px'
+    },
+    ranking: {
+      borderTop: '1px solid #e5e7eb',
+      paddingTop: '16px'
+    },
+    rankingTitle: {
+      fontSize: '14px',
+      fontWeight: 'bold',
+      color: '#374151',
+      marginBottom: '12px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px'
+    },
+    rankingItem: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: '12px',
+      backgroundColor: 'linear-gradient(to right, #fff7ed, transparent)',
+      borderRadius: '8px',
+      border: '1px solid #fed7aa',
+      marginBottom: '8px',
+      transition: 'box-shadow 0.2s'
+    },
+    rankingLeft: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      flex: 1
+    },
+    rankingMedal: {
+      fontSize: '24px'
+    },
+    rankingName: {
+      fontSize: '14px',
+      fontWeight: '500',
+      color: '#111827'
+    },
+    rankingRight: {
+      textAlign: 'right'
+    },
+    rankingValue: {
+      fontSize: '20px',
+      fontWeight: 'bold',
+      color: '#f97316'
+    },
+    rankingUnit: {
+      fontSize: '11px',
+      color: '#6b7280'
+    },
+    refreshBtn: {
+      marginTop: '16px',
+      display: 'flex',
+      justifyContent: 'center'
+    },
+    refreshLink: {
+      fontSize: '12px',
+      color: '#6b7280',
+      cursor: 'pointer',
+      padding: '8px 12px',
+      borderRadius: '6px',
+      border: 'none',
+      backgroundColor: 'transparent',
+      transition: 'all 0.2s',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '4px'
+    }
+  };
+
   return (
-    <div className="w-full bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+    <div style={styles.container}>
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+
+      <div style={styles.header}>
         <div>
-          <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <span>🏆</span>
-            Productos Más Vendidos
-          </h3>
-          <p className="text-xs text-gray-500 mt-1">
-            Total: <span className="font-semibold text-orange-600">{totalVendido}</span> unidades
+          <h3 style={styles.title}>🏆 Productos Más Vendidos</h3>
+          <p style={styles.subtitle}>
+            Total: <span style={{fontWeight: 'bold', color: '#f97316'}}>{totalVendido}</span> unidades
           </p>
         </div>
-
-        {/* Botones Día/Semana */}
-        <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+        <div style={styles.tabGroup}>
           <button
             onClick={() => setActiveTab('day')}
-            className={`px-4 py-2 rounded font-medium text-sm transition-all ${
-              activeTab === 'day'
-                ? 'bg-orange-500 text-white shadow-md'
-                : 'bg-transparent text-gray-600 hover:text-gray-900'
-            }`}
+            style={styles.tab(activeTab === 'day')}
           >
             📅 Hoy
           </button>
           <button
             onClick={() => setActiveTab('week')}
-            className={`px-4 py-2 rounded font-medium text-sm transition-all ${
-              activeTab === 'week'
-                ? 'bg-orange-500 text-white shadow-md'
-                : 'bg-transparent text-gray-600 hover:text-gray-900'
-            }`}
+            style={styles.tab(activeTab === 'week')}
           >
             📊 Semana
           </button>
         </div>
       </div>
 
-      {/* Estados */}
       {loading && (
-        <div className="flex items-center justify-center py-12">
-          <div className="flex flex-col items-center gap-2">
-            <div className="w-8 h-8 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Cargando...</p>
-          </div>
+        <div style={styles.loading}>
+          <div style={styles.spinner}></div>
+          <p style={{fontSize: '14px', color: '#6b7280', margin: 0}}>Cargando...</p>
         </div>
       )}
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-          ⚠️ {error}
-        </div>
-      )}
+      {error && <div style={styles.error}>⚠️ {error}</div>}
 
       {!loading && !error && currentData.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-gray-500">Sin datos disponibles</p>
+        <div style={{textAlign: 'center', padding: '48px 20px', color: '#6b7280'}}>
+          Sin datos disponibles
         </div>
       )}
 
-      {/* Gráfico de Barras */}
       {!loading && !error && currentData.length > 0 && (
-        <div className="mb-8">
-          <div className="w-full h-80 bg-gray-50 rounded-lg p-3">
+        <>
+          <div style={styles.chartContainer}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={currentData}
@@ -178,9 +295,7 @@ export default function TopProductsChart() {
                   tick={{ fontSize: 11, fill: '#6b7280' }}
                   interval={0}
                 />
-                <YAxis
-                  tick={{ fontSize: 11, fill: '#6b7280' }}
-                />
+                <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} />
                 <Tooltip
                   formatter={(value) => [`${value} unid.`, 'Vendidas']}
                   labelFormatter={(label) => `Producto: ${label}`}
@@ -198,59 +313,41 @@ export default function TopProductsChart() {
                   fill="#f97316"
                   radius={[8, 8, 0, 0]}
                   animationDuration={600}
-                  isAnimationActive={true}
                 />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
-      )}
 
-      {/* Tabla de Ranking */}
-      {!loading && !error && currentData.length > 0 && (
-        <div className="border-t pt-4">
-          <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-            <span>🥇</span>
-            Top 5 Productos
-          </h4>
-          <div className="space-y-2">
+          <div style={styles.ranking}>
+            <h4 style={styles.rankingTitle}>🥇 Top 5 Productos</h4>
             {currentData.slice(0, 5).map((product, idx) => {
               const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
               return (
-                <div
-                  key={product.fullName}
-                  className="flex justify-between items-center p-3 bg-gradient-to-r from-orange-50 to-transparent rounded-lg border border-orange-100 hover:shadow-sm transition"
-                >
-                  <div className="flex items-center gap-3 flex-1">
-                    <span className="text-lg">{medals[idx]}</span>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        {product.fullName}
-                      </p>
-                    </div>
+                <div key={product.fullName} style={styles.rankingItem}>
+                  <div style={styles.rankingLeft}>
+                    <span style={styles.rankingMedal}>{medals[idx]}</span>
+                    <p style={styles.rankingName}>{product.fullName}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-orange-600">
-                      {product.cantidad}
-                    </p>
-                    <p className="text-xs text-gray-500">unidades</p>
+                  <div style={styles.rankingRight}>
+                    <p style={styles.rankingValue}>{product.cantidad}</p>
+                    <p style={styles.rankingUnit}>unidades</p>
                   </div>
                 </div>
               );
             })}
           </div>
-        </div>
+        </>
       )}
 
-      {/* Botón Refresh */}
       {!loading && (
-        <div className="mt-4 flex justify-center">
+        <div style={styles.refreshBtn}>
           <button
             onClick={fetchProductStats}
-            className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 px-3 py-1 rounded hover:bg-gray-100 transition"
+            style={styles.refreshLink}
+            onMouseEnter={(e) => e.target.style.backgroundColor = '#f3f4f6'}
+            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
           >
-            <span>🔄</span>
-            Actualizar ahora
+            <span>🔄</span> Actualizar ahora
           </button>
         </div>
       )}
