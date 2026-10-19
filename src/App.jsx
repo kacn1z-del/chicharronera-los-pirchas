@@ -180,7 +180,7 @@ export default function App() {
               <h2 className="section-block__title">Cierre de caja y estadísticas</h2>
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(min(400px, 100%), 1fr))',
                 gap: '24px',
                 marginTop: '16px'
               }}>
