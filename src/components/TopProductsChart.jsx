@@ -34,6 +34,7 @@ export default function TopProductsChart() {
   const getTopProducts = async (period) => {
     const now = new Date();
     let startDate = new Date();
+    
     if (period === 'day') {
       startDate.setHours(0, 0, 0, 0);
     } else {
@@ -41,20 +42,27 @@ export default function TopProductsChart() {
       startDate.setDate(now.getDate() - dayOfWeek);
       startDate.setHours(0, 0, 0, 0);
     }
+
     try {
+      // Buscar órdenes que NO tengan cierreId (están abiertas/activas)
       const q = query(
         collection(db, 'orders'),
-        where('status', '==', 'completed'),
-        where('timestamp', '>=', Timestamp.fromDate(startDate))
+        where('createdAt', '>=', Timestamp.fromDate(startDate))
       );
+      
       const snapshot = await getDocs(q);
       const productMap = {};
+
       snapshot.docs.forEach(doc => {
         const order = doc.data();
-        if (order.items && Array.isArray(order.items)) {
+        
+        // Solo contar si NO tiene cierreId (no está cerrada aún)
+        // O si quieres contar TODAS, quita esta línea
+        if (!order.cierreId && order.items && Array.isArray(order.items)) {
           order.items.forEach(item => {
-            const productName = item.name || 'Producto desconocido';
-            const quantity = parseInt(item.quantity) || 1;
+            const productName = item.nombre || 'Producto desconocido';
+            const quantity = parseInt(item.qty) || 1;
+
             if (!productMap[productName]) {
               productMap[productName] = 0;
             }
@@ -62,6 +70,7 @@ export default function TopProductsChart() {
           });
         }
       });
+
       return Object.entries(productMap)
         .map(([name, quantity]) => ({
           name: name.length > 22 ? name.substring(0, 22) + '...' : name,
