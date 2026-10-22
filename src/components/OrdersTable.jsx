@@ -63,34 +63,53 @@ function fechaDeCreacion(createdAt) {
   return createdAt?.toDate?.() ?? null
 }
 
-// Agrupa los pedidos (ya vienen del más nuevo al más viejo) por día. Cada grupo
-// trae su etiqueta, los pedidos y el total del día (sin los cancelados).
-function agruparPorDia(orders) {
-  const grupos = []
-  const porClave = new Map()
+function capitalizar(texto) {
+  return texto.charAt(0).toUpperCase() + texto.slice(1)
+}
+
+// Agrupa los pedidos (ya vienen del más nuevo al más viejo) por mes y, dentro
+// de cada mes, por día. Cada grupo trae su etiqueta, sus pedidos y su total
+// (sin contar los cancelados).
+function agruparPorMes(orders) {
+  const meses = []
+  const mesesPorClave = new Map()
+
   orders.forEach((order) => {
     const fecha = fechaDeCreacion(order.createdAt)
-    const clave = fecha ? fecha.toDateString() : 'sin-fecha'
-    if (!porClave.has(clave)) {
-      let label = 'Sin fecha'
-      if (fecha) {
-        const texto = fecha.toLocaleDateString('es-CR', {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric',
-        })
-        label = texto.charAt(0).toUpperCase() + texto.slice(1)
-      }
-      const grupo = { key: `dia-${clave}`, label, orders: [], total: 0 }
-      porClave.set(clave, grupo)
-      grupos.push(grupo)
+    const claveMes = fecha
+      ? `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`
+      : 'sin-fecha'
+
+    if (!mesesPorClave.has(claveMes)) {
+      const label = fecha
+        ? capitalizar(fecha.toLocaleDateString('es-CR', { month: 'long', year: 'numeric' }))
+        : 'Sin fecha'
+      const mes = { key: `mes-${claveMes}`, label, dias: [], orders: [], total: 0 }
+      mesesPorClave.set(claveMes, mes)
+      meses.push(mes)
     }
-    const grupo = porClave.get(clave)
-    grupo.orders.push(order)
-    if (order.status !== 'cancelled') grupo.total += Number(order.total || 0)
+    const mes = mesesPorClave.get(claveMes)
+    mes.orders.push(order)
+
+    const claveDia = fecha ? fecha.toDateString() : 'sin-fecha'
+    let dia = mes.dias.find((d) => d.clave === claveDia)
+    if (!dia) {
+      const label = fecha
+        ? capitalizar(fecha.toLocaleDateString('es-CR', { weekday: 'long', day: 'numeric', month: 'long' }))
+        : 'Sin fecha'
+      dia = { key: `dia-${claveDia}`, clave: claveDia, label, orders: [], total: 0 }
+      mes.dias.push(dia)
+    }
+    dia.orders.push(order)
+
+    if (order.status !== 'cancelled') {
+      const monto = Number(order.total || 0)
+      dia.total += monto
+      mes.total += monto
+    }
   })
-  return grupos
+
+  return meses
 }
 
 // Normaliza un teléfono de Costa Rica al formato que necesita wa.me:
@@ -342,22 +361,25 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
   const [reenviandoId, setReenviandoId] = useState(null)
   const [facturaModalOrder, setFacturaModalOrder] = useState(null)
   const [cobroOrder, setCobroOrder] = useState(null)
-  // Días abiertos. Si es null, se abre solo el día más reciente.
+  // Meses y días abiertos. Si son null, se abren solo el mes y el día más recientes.
+  const [openMonths, setOpenMonths] = useState(null)
   const [openDays, setOpenDays] = useState(null)
 
-  const grupos = useMemo(() => agruparPorDia(orders), [orders])
-  const primerDia = grupos[0]?.key ?? null
+  const meses = useMemo(() => agruparPorMes(orders), [orders])
+  const primerMes = meses[0]?.key ?? null
+  const primerDia = meses[0]?.dias[0]?.key ?? null
 
+  const isMonthOpen = (key) => (openMonths === null ? key === primerMes : openMonths.has(key))
   const isDayOpen = (key) => (openDays === null ? key === primerDia : openDays.has(key))
 
-  const toggleDay = (key) => {
-    setOpenDays((prev) => {
-      const actual = prev === null ? new Set(primerDia ? [primerDia] : []) : new Set(prev)
-      if (actual.has(key)) actual.delete(key)
-      else actual.add(key)
-      return actual
-    })
+  const alternarClave = (prev, claveInicial, clave) => {
+    const actual = prev === null ? new Set(claveInicial ? [claveInicial] : []) : new Set(prev)
+    if (actual.has(clave)) actual.delete(clave)
+    else actual.add(clave)
+    return actual
   }
+  const toggleMonth = (key) => setOpenMonths((prev) => alternarClave(prev, primerMes, key))
+  const toggleDay = (key) => setOpenDays((prev) => alternarClave(prev, primerDia, key))
 
   useEffect(() => {
     const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'))
@@ -770,50 +792,67 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
   return (
     <div className="panel" style={{ padding: '10px' }}>
       <ul className="cash-history">
-        {grupos.map((grupo) => {
-          const abierto = isDayOpen(grupo.key)
+        {meses.map((mes) => {
+          const abiertoMes = isMonthOpen(mes.key)
           return (
-            <li key={grupo.key} className="cash-history__item">
-              <button type="button" className="cash-history__row" onClick={() => toggleDay(grupo.key)}>
-                <span>{grupo.label}</span>
-                <span className="mono">{grupo.orders.length} pedido(s)</span>
-                <span className="mono">{formatColones(grupo.total)}</span>
-                <span>{abierto ? '▲' : '▼'}</span>
+            <li key={mes.key} className="cash-history__item">
+              <button type="button" className="cash-history__row" onClick={() => toggleMonth(mes.key)}>
+                <span>{mes.label}</span>
+                <span className="mono">{mes.orders.length} pedido(s)</span>
+                <span className="mono">{formatColones(mes.total)}</span>
+                <span>{abiertoMes ? '▲' : '▼'}</span>
               </button>
-              {abierto && (
-                <div className="cash-history__detail">
-                  <div style={{ overflowX: 'auto' }}>
-                    <table className="orders-table">
-                      <colgroup>
-                        <col className="col-cliente" />
-                        <col className="col-pagos" />
-                        <col className="col-mesa" />
-                        <col className="col-restaurante" />
-                        <col className="col-pedido" />
-                        <col className="col-estado" />
-                        <col className="col-canal" />
-                        <col className="col-hora" />
-                        <col className="col-contacto" />
-                        <col className="col-acciones" />
-                      </colgroup>
-                      <thead>
-                        <tr>
-                          <th>Cliente</th>
-                          <th>Pagos</th>
-                          <th>Mesa</th>
-                          <th>Restaurante</th>
-                          <th>Pedido</th>
-                          <th>Estado</th>
-                          <th>Canal</th>
-                          <th>Fecha</th>
-                          <th>Contacto</th>
-                          <th>Acciones</th>
-                        </tr>
-                      </thead>
-                      <tbody>{grupo.orders.map(renderOrderRow)}</tbody>
-                    </table>
-                  </div>
-                </div>
+              {abiertoMes && (
+                <ul className="cash-history" style={{ marginTop: '6px', paddingLeft: '8px' }}>
+                  {mes.dias.map((dia) => {
+                    const abiertoDia = isDayOpen(dia.key)
+                    return (
+                      <li key={dia.key} className="cash-history__item">
+                        <button type="button" className="cash-history__row" onClick={() => toggleDay(dia.key)}>
+                          <span>{dia.label}</span>
+                          <span className="mono">{dia.orders.length} pedido(s)</span>
+                          <span className="mono">{formatColones(dia.total)}</span>
+                          <span>{abiertoDia ? '▲' : '▼'}</span>
+                        </button>
+                        {abiertoDia && (
+                          <div className="cash-history__detail">
+                            <div style={{ overflowX: 'auto' }}>
+                              <table className="orders-table">
+                                <colgroup>
+                                  <col className="col-cliente" />
+                                  <col className="col-pagos" />
+                                  <col className="col-mesa" />
+                                  <col className="col-restaurante" />
+                                  <col className="col-pedido" />
+                                  <col className="col-estado" />
+                                  <col className="col-canal" />
+                                  <col className="col-hora" />
+                                  <col className="col-contacto" />
+                                  <col className="col-acciones" />
+                                </colgroup>
+                                <thead>
+                                  <tr>
+                                    <th>Cliente</th>
+                                    <th>Pagos</th>
+                                    <th>Mesa</th>
+                                    <th>Restaurante</th>
+                                    <th>Pedido</th>
+                                    <th>Estado</th>
+                                    <th>Canal</th>
+                                    <th>Fecha</th>
+                                    <th>Contacto</th>
+                                    <th>Acciones</th>
+                                  </tr>
+                                </thead>
+                                <tbody>{dia.orders.map(renderOrderRow)}</tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
               )}
             </li>
           )
