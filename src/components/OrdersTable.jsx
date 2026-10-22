@@ -64,6 +64,39 @@ function formatFechaHora(createdAt) {
   })
 }
 
+function fechaDeCreacion(createdAt) {
+  if (!createdAt) return null
+  if (typeof createdAt === 'number') return new Date(createdAt)
+  return createdAt?.toDate?.() ?? null
+}
+
+// Agrupa los pedidos (ya vienen del más nuevo al más viejo) por día, y deja
+// un encabezado antes de cada grupo.
+function agruparPorDia(orders) {
+  const resultado = []
+  let diaActual = null
+  orders.forEach((order) => {
+    const fecha = fechaDeCreacion(order.createdAt)
+    const clave = fecha ? fecha.toDateString() : 'sin-fecha'
+    if (clave !== diaActual) {
+      diaActual = clave
+      let label = 'Sin fecha'
+      if (fecha) {
+        const texto = fecha.toLocaleDateString('es-CR', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        })
+        label = texto.charAt(0).toUpperCase() + texto.slice(1)
+      }
+      resultado.push({ header: true, key: `dia-${clave}`, label })
+    }
+    resultado.push({ header: false, order })
+  })
+  return resultado
+}
+
 // Normaliza un teléfono de Costa Rica al formato que necesita wa.me:
 // código de país (506) + los 8 dígitos, sin espacios ni guiones. Sin el
 // código de país, WhatsApp intenta adivinar el país del número y a veces
@@ -618,7 +651,28 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
           </tr>
         </thead>
         <tbody>
-          {orders.map((order) => {
+          {agruparPorDia(orders).map((item) => {
+            if (item.header) {
+              return (
+                <tr key={item.key} className="orders-day-header">
+                  <td
+                    colSpan={10}
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      color: '#7a5a3a',
+                      padding: '14px 4px 6px',
+                      border: 'none',
+                      textAlign: 'left',
+                    }}
+                  >
+                    {item.label}
+                  </td>
+                </tr>
+              )
+            }
+
+            const order = item.order
             const status = statusInfo(order.status)
             const origen = origenInfo(order)
             const link = whatsappLink(order)
