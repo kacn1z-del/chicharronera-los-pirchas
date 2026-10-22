@@ -51,6 +51,19 @@ function formatTime(createdAt) {
   return date.toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })
 }
 
+function formatFechaHora(createdAt) {
+  if (!createdAt) return '—'
+  const date = typeof createdAt === 'number' ? new Date(createdAt) : createdAt?.toDate?.()
+  if (!date) return '—'
+  return date.toLocaleString('es-CR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 // Normaliza un teléfono de Costa Rica al formato que necesita wa.me:
 // código de país (506) + los 8 dígitos, sin espacios ni guiones. Sin el
 // código de país, WhatsApp intenta adivinar el país del número y a veces
@@ -240,7 +253,7 @@ async function printReceipt(order) {
     <img class="logo" src="/receipt/ticket-logo.jpg" alt="Los Pirchas" />
     <p class="sub">Restaurante y Chicharronera</p>
   </div>
-  <p class="meta center">${formatNumeroPedido(numeroPedido)} · ${formatTime(order.createdAt)}</p>
+  <p class="meta center">${formatNumeroPedido(numeroPedido)} · ${formatFechaHora(order.createdAt)}</p>
   <p class="meta center">${order.clientName || order.mesa || ''}${order.clientPhone ? ' · ' + order.clientPhone : ''}</p>
   ${order.clientAddress ? `<p class="meta center">${order.clientAddress}</p>` : ''}
   <div class="items"><table><tbody>${itemsHtml}${expressHtml}</tbody></table></div>
@@ -599,7 +612,7 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
             <th>Pedido</th>
             <th>Estado</th>
             <th>Canal</th>
-            <th>Hora</th>
+            <th>Fecha</th>
             <th>Contacto</th>
             <th>Acciones</th>
           </tr>
@@ -646,7 +659,7 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
                 <td data-label="Canal">
                   <span className={`badge badge--${origen.tone}`}>{origen.label}</span>
                 </td>
-                <td className="mono" data-label="Hora">{formatTime(order.createdAt)}</td>
+                <td className="mono" data-label="Fecha">{formatFechaHora(order.createdAt)}</td>
                 <td data-label="Contacto">
                   {order.mesa ? (
                     <span className="badge badge--gray">{serviceLabel(order)}</span>
