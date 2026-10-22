@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { collection, deleteDoc, doc, onSnapshot, orderBy, query, updateDoc, writeBatch } from 'firebase/firestore'
 import { db, writeAndContinue } from '../firebase'
 import { asegurarNumeroPedido, formatNumeroPedido } from '../lib/pedidoNumero'
@@ -44,13 +44,6 @@ function statusInfo(status) {
   return STATUS_LABELS[status] ?? { label: status || 'Sin estado', tone: 'gray' }
 }
 
-function formatTime(createdAt) {
-  if (!createdAt) return '—'
-  const date = typeof createdAt === 'number' ? new Date(createdAt) : createdAt?.toDate?.()
-  if (!date) return '—'
-  return date.toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })
-}
-
 function formatFechaHora(createdAt) {
   if (!createdAt) return '—'
   const date = typeof createdAt === 'number' ? new Date(createdAt) : createdAt?.toDate?.()
@@ -70,16 +63,15 @@ function fechaDeCreacion(createdAt) {
   return createdAt?.toDate?.() ?? null
 }
 
-// Agrupa los pedidos (ya vienen del más nuevo al más viejo) por día, y deja
-// un encabezado antes de cada grupo.
+// Agrupa los pedidos (ya vienen del más nuevo al más viejo) por día. Cada grupo
+// trae su etiqueta, los pedidos y el total del día (sin los cancelados).
 function agruparPorDia(orders) {
-  const resultado = []
-  let diaActual = null
+  const grupos = []
+  const porClave = new Map()
   orders.forEach((order) => {
     const fecha = fechaDeCreacion(order.createdAt)
     const clave = fecha ? fecha.toDateString() : 'sin-fecha'
-    if (clave !== diaActual) {
-      diaActual = clave
+    if (!porClave.has(clave)) {
       let label = 'Sin fecha'
       if (fecha) {
         const texto = fecha.toLocaleDateString('es-CR', {
@@ -90,11 +82,15 @@ function agruparPorDia(orders) {
         })
         label = texto.charAt(0).toUpperCase() + texto.slice(1)
       }
-      resultado.push({ header: true, key: `dia-${clave}`, label })
+      const grupo = { key: `dia-${clave}`, label, orders: [], total: 0 }
+      porClave.set(clave, grupo)
+      grupos.push(grupo)
     }
-    resultado.push({ header: false, order })
+    const grupo = porClave.get(clave)
+    grupo.orders.push(order)
+    if (order.status !== 'cancelled') grupo.total += Number(order.total || 0)
   })
-  return resultado
+  return grupos
 }
 
 // Normaliza un teléfono de Costa Rica al formato que necesita wa.me:
@@ -147,7 +143,6 @@ function itemsSummary(order) {
   if (!Array.isArray(order.items) || order.items.length === 0) return '—'
   return order.items.map((i) => `${i.qty}× ${i.nombre}${i.nota ? ` (${i.nota})` : ''}`).join(', ')
 }
-
 
 function paymentBreakdown(order) {
   if (!order.paymentMethod) return '—'
@@ -245,19 +240,9 @@ async function printReceipt(order) {
 <style>
   @page { size: 58mm auto; margin: 0; }
   * { box-sizing: border-box; }
-  /* 48mm y pegado al borde izquierdo (margin: 0, no "0 auto"): aunque el
-     rollo mida 58mm, el cabezal de la mayoría de impresoras térmicas de
-     este tamaño solo imprime de verdad unos 46-48mm de ancho, y esa área
-     imprimible arranca desde el borde izquierdo del rollo — no está
-     centrada. Con "margin: 0 auto" el bloque quedaba centrado dentro de
-     los 58mm declarados, así que se corría hacia la derecha y el borde
-     derecho (los precios) se cortaba. Pegándolo a la izquierda entra
-     completo dentro del área que la impresora sí imprime. */
   /* 42mm en vez de 48mm: el cabezal de esta impresora en particular
-     imprime un área real más angosta que 48mm dentro del rollo de 58mm —
-     con 48mm el lado derecho (los precios, alineados a la derecha) se
-     seguía cortando en el papel físico, aunque en la vista previa del
-     celular se viera completo. */
+     imprime un área real más angosta que 48mm dentro del rollo de 58mm.
+     Pegado a la izquierda (margin: 0) para que los precios no se corten. */
   body { font-family: -apple-system, Arial, sans-serif; color: #000; padding: 3mm 1mm 3mm 1mm; width: 42mm; margin: 0; }
   .center { text-align: center; }
   .logo { width: 100%; display: block; margin: 0 auto 4px; }
@@ -266,8 +251,7 @@ async function printReceipt(order) {
   .items { margin: 8px 0; padding: 6px 0; border-top: 1px dashed #000; border-bottom: 1px dashed #000; }
   /* Tabla en vez de flexbox: algunos motores de impresión térmica (vía
      AirPrint) no soportan bien CSS Flexbox y simplemente descartan la
-     columna de precio sin avisar. Las tablas HTML las soporta prácticamente
-     cualquier motor de impresión, por viejo o limitado que sea. */
+     columna de precio sin avisar. */
   .items table, .total table { width: 100%; border-collapse: collapse; }
   .items td { font-size: 11px; padding: 0 0 3px; vertical-align: top; }
   .total td { font-weight: 700; font-size: 13px; padding: 0; }
@@ -302,9 +286,8 @@ async function printReceipt(order) {
 </body>
 </html>`
 
-    // En vez de abrir una ventana nueva (bloqueada o restringida de formas
-    // impredecibles por Safari/Chrome en el celular), se imprime desde un
-    // iframe invisible dentro de la misma página — no depende de popups.
+    // Se imprime desde un iframe invisible dentro de la misma página — no
+    // depende de popups, que Safari/Chrome en el celular bloquean.
     const iframeAnterior = document.getElementById('recibo-print-frame')
     if (iframeAnterior) iframeAnterior.remove()
 
@@ -318,11 +301,8 @@ async function printReceipt(order) {
     iframe.style.border = '0'
     iframe.onload = async () => {
       try {
-        // El iframe ya cargó su HTML, pero las imágenes (logo, hamburguesa,
-        // papas) siguen bajando por su cuenta en ese momento — si se
-        // imprime de una, salen en blanco. Esperamos a que todas terminen
-        // (o a que pasen 1.5s como máximo, por si alguna falla) antes de
-        // disparar la impresión.
+        // Esperamos a que las imágenes (logo, hamburguesa, papas) terminen de
+        // cargar, o máximo 1.5s, antes de imprimir; si no, salen en blanco.
         const imgs = Array.from(iframe.contentDocument?.images || [])
         const esperaImagenes = Promise.all(
           imgs.map((img) =>
@@ -362,6 +342,22 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
   const [reenviandoId, setReenviandoId] = useState(null)
   const [facturaModalOrder, setFacturaModalOrder] = useState(null)
   const [cobroOrder, setCobroOrder] = useState(null)
+  // Días abiertos. Si es null, se abre solo el día más reciente.
+  const [openDays, setOpenDays] = useState(null)
+
+  const grupos = useMemo(() => agruparPorDia(orders), [orders])
+  const primerDia = grupos[0]?.key ?? null
+
+  const isDayOpen = (key) => (openDays === null ? key === primerDia : openDays.has(key))
+
+  const toggleDay = (key) => {
+    setOpenDays((prev) => {
+      const actual = prev === null ? new Set(primerDia ? [primerDia] : []) : new Set(prev)
+      if (actual.has(key)) actual.delete(key)
+      else actual.add(key)
+      return actual
+    })
+  }
 
   useEffect(() => {
     const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'))
@@ -503,14 +499,9 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
   }
 
   // Cobrar/cerrar un pedido con método de pago (y, si corresponde, dividido
-  // entre varias personas) — mismo resultado final que "Entregado" (status
-  // delivered + descuento de inventario), pero guardando además cómo se
-  // pagó. "datosPago" viene armado por CobroModal, ya sea:
-  //   { paymentMethod: 'efectivo' | 'sinpe' | 'tarjeta', envioExpress }   — cobro simple
-  //   { paymentMethod: 'dividido', splitPayment: true, payments: [...], envioExpress }  — dividido
-  // "envioExpress" es el cargo adicional opcional (₡1000/₡1500/₡2000) que
-  // se elige solo para pedidos tipo "express"; se suma al total guardado
-  // para que Cierre de caja y reportes reflejen lo realmente cobrado.
+  // entre varias personas). "datosPago" viene armado por CobroModal.
+  // "envioExpress" es el cargo adicional opcional de un pedido express; se
+  // suma al total guardado para que Cierre de caja refleje lo cobrado.
   const confirmarCobro = async (order, datosPago) => {
     setCobroOrder(null)
     setBusyId(order.id)
@@ -527,9 +518,8 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
           ...restoDatosPago,
           ...(debeDescontar ? { stockDescontado: true } : {}),
           ...(envioExpress ? { envioExpress, total: order.total + envioExpress } : {}),
-          // Si el pedido tenía un cupo asignado en el plano de Salón
-          // (mesa de meseros, o Express/Llevar de un pedido telefónico),
-          // lo liberamos al cobrarlo para que desaparezca del plano.
+          // Si el pedido tenía un cupo asignado en el plano de Salón, lo
+          // liberamos al cobrarlo para que desaparezca del plano.
           mesaAbierta: false,
         })
       )
@@ -572,9 +562,7 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
     }
   }
 
-  // Reenvía por correo el mismo comprobante (imagen con marca + XML) que ya
-  // se mandó automático al facturar — no vuelve a facturar ni a hablar con
-  // Hacienda, solo reenvía lo que ya está guardado en el pedido.
+  // Reenvía por correo el mismo comprobante que ya se mandó al facturar.
   const reenviarCorreo = async (order) => {
     setReenviandoId(order.id)
     try {
@@ -594,6 +582,164 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
     } finally {
       setReenviandoId(null)
     }
+  }
+
+  // Una fila de pedido con todas sus acciones. Se usa dentro de cada día.
+  const renderOrderRow = (order) => {
+    const status = statusInfo(order.status)
+    const origen = origenInfo(order)
+    const link = whatsappLink(order)
+    const factura = order.facturaEstado ? FACTURA_LABELS[order.facturaEstado] : null
+    const linkFactura = whatsappFacturaLink(order)
+    return (
+      <tr key={order.id}>
+        <td data-label="Cliente">{order.clientName || order.clientId || '—'}</td>
+        <td data-label="Pagos" style={{ fontSize: '11px' }}>
+          {paymentBreakdown(order)}
+          {order.numeroPedido && <div className="order-sub mono">{formatNumeroPedido(order.numeroPedido)}</div>}
+          {order.mesero && <div className="order-sub mono">Mesero: {order.mesero}</div>}
+        </td>
+        <td data-label="Mesa">{order.mesa ? order.mesa : '—'}</td>
+        <td data-label="Restaurante">{order.restaurantName || order.restaurantId || '—'}</td>
+        <td className="order-items" data-label="Pedido">{itemsSummary(order)}</td>
+        <td data-label="Estado">
+          <span className={`badge badge--${status.tone}`}>{status.label}</span>
+          {factura && (
+            <div className="order-sub">
+              <span className={`badge badge--${factura.tone}`}>{factura.label}</span>
+            </div>
+          )}
+          {order.cierreId && (
+            <div className="order-sub">
+              <span className="badge badge--gray">En caja cerrada</span>
+            </div>
+          )}
+          {order.solicitudEliminacion && (
+            <div className="order-sub" title={order.solicitudEliminacion.nota}>
+              <span className="badge badge--red">Piden eliminar</span>
+            </div>
+          )}
+        </td>
+        <td data-label="Canal">
+          <span className={`badge badge--${origen.tone}`}>{origen.label}</span>
+        </td>
+        <td className="mono" data-label="Fecha">{formatFechaHora(order.createdAt)}</td>
+        <td data-label="Contacto">
+          {order.mesa ? (
+            <span className="badge badge--gray">{serviceLabel(order)}</span>
+          ) : link ? (
+            <a className="wa-button" href={link} target="_blank" rel="noreferrer">
+              Notificar
+            </a>
+          ) : (
+            <span className="wa-button wa-button--disabled">Sin teléfono</span>
+          )}
+        </td>
+        <td data-label="Acciones">
+          <div className="order-actions">
+            {order.status === 'pending_approval' && (
+              <button
+                type="button"
+                className="action-btn action-btn--green"
+                disabled={busyId === order.id}
+                onClick={() => setStatus(order.id, 'pending')}
+              >
+                ✔️ Aprobar pedido
+              </button>
+            )}
+            {order.status !== 'pending_approval' && order.status !== 'preparing' && order.status !== 'listo' && (
+              <button
+                type="button"
+                className="action-btn action-btn--blue"
+                disabled={busyId === order.id}
+                onClick={() => setStatus(order.id, 'preparing')}
+              >
+                Preparando
+              </button>
+            )}
+            {order.status !== 'pending_approval' && order.status !== 'delivered' && (
+              <button
+                type="button"
+                className="action-btn action-btn--green"
+                disabled={busyId === order.id}
+                onClick={() => setStatus(order.id, 'delivered')}
+              >
+                Entregado
+              </button>
+            )}
+            {order.status !== 'pending_approval' && order.status !== 'cancelled' && (
+              <button
+                type="button"
+                className="action-btn action-btn--purple"
+                disabled={busyId === order.id}
+                onClick={() => setCobroOrder(order)}
+              >
+                💳 Cobrar
+              </button>
+            )}
+            {order.status !== 'cancelled' && (
+              <button
+                type="button"
+                className="action-btn action-btn--amber"
+                disabled={busyId === order.id}
+                onClick={() => setStatus(order.id, 'cancelled')}
+              >
+                Cancelar
+              </button>
+            )}
+            <button
+              type="button"
+              className="action-btn action-btn--purple"
+              disabled={facturandoId === order.id || order.facturaEstado === 'aceptado'}
+              onClick={() => facturarOrder(order)}
+            >
+              {facturandoId === order.id
+                ? 'Facturando…'
+                : order.facturaEstado === 'aceptado'
+                ? 'Facturado ✔️'
+                : 'Facturar'}
+            </button>
+            <button type="button" className="action-btn action-btn--blue" onClick={() => printReceipt(order)}>
+              🖨️ Imprimir
+            </button>
+            {linkFactura && (
+              <a className="action-btn action-btn--green" href={linkFactura} target="_blank" rel="noreferrer">
+                📱 Comprobante WhatsApp
+              </a>
+            )}
+            {order.facturaEstado === 'aceptado' && order.clientEmail && (
+              <button
+                type="button"
+                className="action-btn action-btn--blue"
+                disabled={reenviandoId === order.id}
+                onClick={() => reenviarCorreo(order)}
+              >
+                {reenviandoId === order.id ? 'Enviando…' : '✉️ Reenviar correo'}
+              </button>
+            )}
+            {isAdmin ? (
+              <button
+                type="button"
+                className="action-btn action-btn--red"
+                disabled={busyId === order.id}
+                onClick={() => removeOrder(order)}
+              >
+                Eliminar
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="action-btn action-btn--red"
+                disabled={busyId === order.id || !!order.solicitudEliminacion}
+                onClick={() => requestDeletion(order)}
+              >
+                {order.solicitudEliminacion ? 'Ya avisaste' : 'Anular con nota'}
+              </button>
+            )}
+          </div>
+        </td>
+      </tr>
+    )
   }
 
   if (loading) {
@@ -622,226 +768,58 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
   }
 
   return (
-    <div className="panel">
-      <table className="orders-table">
-        <colgroup>
-          <col className="col-cliente" />
-          <col className="col-pagos" />
-          <col className="col-mesa" />
-          <col className="col-restaurante" />
-          <col className="col-pedido" />
-          <col className="col-estado" />
-          <col className="col-canal" />
-          <col className="col-hora" />
-          <col className="col-contacto" />
-          <col className="col-acciones" />
-        </colgroup>
-        <thead>
-          <tr>
-            <th>Cliente</th>
-            <th>Pagos</th>
-            <th>Mesa</th>
-            <th>Restaurante</th>
-            <th>Pedido</th>
-            <th>Estado</th>
-            <th>Canal</th>
-            <th>Fecha</th>
-            <th>Contacto</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {agruparPorDia(orders).map((item) => {
-            if (item.header) {
-              return (
-                <tr key={item.key} className="orders-day-header">
-                  <td
-                    colSpan={10}
-                    style={{
-                      fontSize: '13px',
-                      fontWeight: 700,
-                      color: '#7a5a3a',
-                      padding: '14px 4px 6px',
-                      border: 'none',
-                      textAlign: 'left',
-                    }}
-                  >
-                    {item.label}
-                  </td>
-                </tr>
-              )
-            }
-
-            const order = item.order
-            const status = statusInfo(order.status)
-            const origen = origenInfo(order)
-            const link = whatsappLink(order)
-            const factura = order.facturaEstado ? FACTURA_LABELS[order.facturaEstado] : null
-            return (
-              <tr key={order.id}>
-                <td data-label="Cliente">
-                  {order.clientName || order.clientId || '—'}
-                </td>
-                <td data-label="Pagos" style={{ fontSize: '11px' }}>
-                  {paymentBreakdown(order)}
-                  {order.numeroPedido && (
-                    <div className="order-sub mono">{formatNumeroPedido(order.numeroPedido)}</div>
-                  )}
-                  {order.mesero && <div className="order-sub mono">Mesero: {order.mesero}</div>}
-                </td>
-                <td data-label="Mesa">{order.mesa ? order.mesa : '—'}</td>
-                <td data-label="Restaurante">{order.restaurantName || order.restaurantId || '—'}</td>
-                <td className="order-items" data-label="Pedido">{itemsSummary(order)}</td>
-                <td data-label="Estado">
-                  <span className={`badge badge--${status.tone}`}>{status.label}</span>
-                  {factura && (
-                    <div className="order-sub">
-                      <span className={`badge badge--${factura.tone}`}>{factura.label}</span>
-                    </div>
-                  )}
-                  {order.cierreId && (
-                    <div className="order-sub">
-                      <span className="badge badge--gray">En caja cerrada</span>
-                    </div>
-                  )}
-                  {order.solicitudEliminacion && (
-                    <div className="order-sub" title={order.solicitudEliminacion.nota}>
-                      <span className="badge badge--red">Piden eliminar</span>
-                    </div>
-                  )}
-                </td>
-                <td data-label="Canal">
-                  <span className={`badge badge--${origen.tone}`}>{origen.label}</span>
-                </td>
-                <td className="mono" data-label="Fecha">{formatFechaHora(order.createdAt)}</td>
-                <td data-label="Contacto">
-                  {order.mesa ? (
-                    <span className="badge badge--gray">{serviceLabel(order)}</span>
-                  ) : link ? (
-                    <a className="wa-button" href={link} target="_blank" rel="noreferrer">
-                      Notificar
-                    </a>
-                  ) : (
-                    <span className="wa-button wa-button--disabled">Sin teléfono</span>
-                  )}
-                </td>
-                <td data-label="Acciones">
-                  <div className="order-actions">
-                    {order.status === 'pending_approval' && (
-                      <button
-                        type="button"
-                        className="action-btn action-btn--green"
-                        disabled={busyId === order.id}
-                        onClick={() => setStatus(order.id, 'pending')}
-                      >
-                        ✔️ Aprobar pedido
-                      </button>
-                    )}
-                    {order.status !== 'pending_approval' && order.status !== 'preparing' && order.status !== 'listo' && (
-                      <button
-                        type="button"
-                        className="action-btn action-btn--blue"
-                        disabled={busyId === order.id}
-                        onClick={() => setStatus(order.id, 'preparing')}
-                      >
-                        Preparando
-                      </button>
-                    )}
-                    {order.status !== 'pending_approval' && order.status !== 'delivered' && (
-                      <button
-                        type="button"
-                        className="action-btn action-btn--green"
-                        disabled={busyId === order.id}
-                        onClick={() => setStatus(order.id, 'delivered')}
-                      >
-                        Entregado
-                      </button>
-                    )}
-                    {order.status !== 'pending_approval' && order.status !== 'cancelled' && (
-                      <button
-                        type="button"
-                        className="action-btn action-btn--purple"
-                        disabled={busyId === order.id}
-                        onClick={() => setCobroOrder(order)}
-                      >
-                        💳 Cobrar
-                      </button>
-                    )}
-                    {order.status !== 'cancelled' && (
-                      <button
-                        type="button"
-                        className="action-btn action-btn--amber"
-                        disabled={busyId === order.id}
-                        onClick={() => setStatus(order.id, 'cancelled')}
-                      >
-                        Cancelar
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="action-btn action-btn--purple"
-                      disabled={facturandoId === order.id || order.facturaEstado === 'aceptado'}
-                      onClick={() => facturarOrder(order)}
-                    >
-                      {facturandoId === order.id
-                        ? 'Facturando…'
-                        : order.facturaEstado === 'aceptado'
-                        ? 'Facturado ✔️'
-                        : 'Facturar'}
-                    </button>
-                    <button
-                      type="button"
-                      className="action-btn action-btn--blue"
-                      onClick={() => printReceipt(order)}
-                    >
-                      🖨️ Imprimir
-                    </button>
-                    {whatsappFacturaLink(order) && (
-                      <a
-                        className="action-btn action-btn--green"
-                        href={whatsappFacturaLink(order)}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        📱 Comprobante WhatsApp
-                      </a>
-                    )}
-                    {order.facturaEstado === 'aceptado' && order.clientEmail && (
-                      <button
-                        type="button"
-                        className="action-btn action-btn--blue"
-                        disabled={reenviandoId === order.id}
-                        onClick={() => reenviarCorreo(order)}
-                      >
-                        {reenviandoId === order.id ? 'Enviando…' : '✉️ Reenviar correo'}
-                      </button>
-                    )}
-                    {isAdmin ? (
-                      <button
-                        type="button"
-                        className="action-btn action-btn--red"
-                        disabled={busyId === order.id}
-                        onClick={() => removeOrder(order)}
-                      >
-                        Eliminar
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="action-btn action-btn--red"
-                        disabled={busyId === order.id || !!order.solicitudEliminacion}
-                        onClick={() => requestDeletion(order)}
-                      >
-                        {order.solicitudEliminacion ? 'Ya avisaste' : 'Anular con nota'}
-                      </button>
-                    )}
+    <div className="panel" style={{ padding: '10px' }}>
+      <ul className="cash-history">
+        {grupos.map((grupo) => {
+          const abierto = isDayOpen(grupo.key)
+          return (
+            <li key={grupo.key} className="cash-history__item">
+              <button type="button" className="cash-history__row" onClick={() => toggleDay(grupo.key)}>
+                <span>{grupo.label}</span>
+                <span className="mono">{grupo.orders.length} pedido(s)</span>
+                <span className="mono">{formatColones(grupo.total)}</span>
+                <span>{abierto ? '▲' : '▼'}</span>
+              </button>
+              {abierto && (
+                <div className="cash-history__detail">
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="orders-table">
+                      <colgroup>
+                        <col className="col-cliente" />
+                        <col className="col-pagos" />
+                        <col className="col-mesa" />
+                        <col className="col-restaurante" />
+                        <col className="col-pedido" />
+                        <col className="col-estado" />
+                        <col className="col-canal" />
+                        <col className="col-hora" />
+                        <col className="col-contacto" />
+                        <col className="col-acciones" />
+                      </colgroup>
+                      <thead>
+                        <tr>
+                          <th>Cliente</th>
+                          <th>Pagos</th>
+                          <th>Mesa</th>
+                          <th>Restaurante</th>
+                          <th>Pedido</th>
+                          <th>Estado</th>
+                          <th>Canal</th>
+                          <th>Fecha</th>
+                          <th>Contacto</th>
+                          <th>Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody>{grupo.orders.map(renderOrderRow)}</tbody>
+                    </table>
                   </div>
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+                </div>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+
       {facturaModalOrder && (
         <FacturaModal
           order={facturaModalOrder}
@@ -860,9 +838,7 @@ export default function OrdersTable({ onConnectionChange, isAdmin }) {
   )
 }
 
-// Formulario para completar los datos del cliente antes de facturar: nombre,
-// cédula, correo y dirección (para la Factura/Tiquete electrónico en sí) y
-// teléfono (para poder mandarle el comprobante por WhatsApp después). Todos
+// Formulario para completar los datos del cliente antes de facturar. Todos
 // los campos son opcionales — sin cédula sale Tiquete en vez de Factura.
 function FacturaModal({ order, onCancel, onConfirm }) {
   const [form, setForm] = useState({
@@ -957,12 +933,9 @@ const PAGO_OPTIONS = [
 // Costo adicional opcional por entrega express, elegido a la hora de cobrar.
 const EXPRESS_FEE_OPTIONS = [0, 500, 1000, 1500, 2000, 2500]
 
-// Modal de cobro: cobrar todo junto con un método de pago, o dividir la
-// cuenta asignando cada plato a una persona específica (igual que en la
-// app de meseros) y elegir el método de pago de cada una por separado.
-// NOTA: Esto es SOLO la función CobroModal modificada. Reemplazá la función completa
-// en src/components/OrdersTable.jsx (búscala desde "function CobroModal({")
-
+// Modal de cobro: cobrar todo junto con un método de pago, pago mixto, o
+// dividir la cuenta asignando cada plato a una persona específica (igual que
+// en la app de meseros) y elegir el método de pago de cada una por separado.
 function CobroModal({ order, onCancel, onConfirm }) {
   const items = order.items || []
   const isExpress = order.tipo === 'express'
@@ -979,7 +952,7 @@ function CobroModal({ order, onCancel, onConfirm }) {
   const [personaSeq, setPersonaSeq] = useState(2)
   const [activePersonaId, setActivePersonaId] = useState(1)
   const [assignments, setAssignments] = useState({})
-  // NUEVO: controlar QUIÉNES pagan (para el caso de que se vayan algunos)
+  // Quiénes pagan ahora (por si se van algunos antes de cobrar).
   const [personasAPagar, setPersonasAPagar] = useState(new Set(personas.map((p) => p.id)))
 
   const getAssignments = (nombre, qty) => {
@@ -998,8 +971,8 @@ function CobroModal({ order, onCancel, onConfirm }) {
   const sumaMixta = (Number(montoEfectivo) || 0) + (Number(montoTarjeta) || 0) + (Number(montoSinpe) || 0)
   const faltanteMixto = totalACobrar - sumaMixta
 
-  // MODIFICADO: calcular fee solo sobre las personas que van a pagar
-  const feeShare = (personasAPagar.size > 0 ? Math.round(expressFee / personasAPagar.size) : 0)
+  // El cargo express se reparte solo entre las personas que pagan ahora.
+  const feeShare = personasAPagar.size > 0 ? Math.round(expressFee / personasAPagar.size) : 0
 
   const personaTotal = (personaId) => {
     let total = 0
@@ -1029,7 +1002,6 @@ function CobroModal({ order, onCancel, onConfirm }) {
     setPersonas([...personas, nuevaPersona])
     setPersonaSeq(seq)
     setActivePersonaId(seq)
-    // Auto-agregar a personas a pagar
     setPersonasAPagar(new Set([...personasAPagar, seq]))
   }
 
@@ -1056,7 +1028,6 @@ function CobroModal({ order, onCancel, onConfirm }) {
     setAssignments({ ...assignments, [nombre]: arr })
   }
 
-  // NUEVO: toggle para marcar una persona como "que se va a pagar"
   const togglePersonaAPagar = (personaId) => {
     const nueva = new Set(personasAPagar)
     if (nueva.has(personaId)) {
@@ -1068,7 +1039,6 @@ function CobroModal({ order, onCancel, onConfirm }) {
   }
 
   const restantes = unassignedCount()
-  // NUEVO: calcular total a cobrar solo de las personas seleccionadas
   const totalAPagarAhora = personas
     .filter((p) => personasAPagar.has(p.id))
     .reduce((sum, p) => sum + personaTotal(p.id), 0)
@@ -1080,10 +1050,9 @@ function CobroModal({ order, onCancel, onConfirm }) {
       return
     }
 
-    // MODIFICADO: crear pagos SOLO de las personas seleccionadas
     const payments = personas
       .filter((p) => personasAPagar.has(p.id))
-      .map((p, idx) => {
+      .map((p) => {
         const monto = personaTotal(p.id)
         const itemsPersona = items
           .map((it) => {
@@ -1092,7 +1061,6 @@ function CobroModal({ order, onCancel, onConfirm }) {
           })
           .filter(Boolean)
         if (feeShare > 0) itemsPersona.push({ nombre: 'Envío express', precio: feeShare, qty: 1 })
-        // NUEVO: incluir índice de persona original para mejor identificación
         const personaIdx = personas.findIndex((x) => x.id === p.id)
         return { persona: `Persona ${personaIdx + 1}`, metodo: p.metodo, monto, items: itemsPersona }
       })
@@ -1237,12 +1205,7 @@ function CobroModal({ order, onCancel, onConfirm }) {
               <button type="button" className="btn-secondary" onClick={onCancel}>
                 Cancelar
               </button>
-              <button
-                type="button"
-                className="btn-primary"
-                disabled={faltanteMixto !== 0}
-                onClick={handleConfirmMixto}
-              >
+              <button type="button" className="btn-primary" disabled={faltanteMixto !== 0} onClick={handleConfirmMixto}>
                 Cobrar {formatColones(totalACobrar)}
               </button>
             </div>
@@ -1251,7 +1214,6 @@ function CobroModal({ order, onCancel, onConfirm }) {
           <>
             <p className="split-hint">Elegí quién paga y tocá los platos que le tocan a esa persona.</p>
 
-            {/* NUEVO: selector de "quiénes se van a pagar" */}
             <div className="split-personas-selector">
               <p className="split-hint" style={{ fontSize: 12, marginBottom: 8 }}>
                 👉 Toca las personas que se van a pagar AHORA (los demás quedan sin cobrar):
@@ -1278,7 +1240,6 @@ function CobroModal({ order, onCancel, onConfirm }) {
               </p>
             </div>
 
-            {/* Original: selector de persona activa y asignación de items */}
             <div className="split-personas">
               {personas.map((p, idx) => (
                 <button
